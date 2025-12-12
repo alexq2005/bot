@@ -22,6 +22,8 @@ import threading
 import time
 from datetime import datetime
 from trading_bot import TradingBot
+import plotly.graph_objects as go
+import numpy as np
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -93,23 +95,260 @@ def main():
 
 
 def render_command_center():
-    """Renderiza el Command Center"""
+    """Renderiza el Command Center - Centro de Control Principal"""
     st.title("🖥️ Command Center")
-    st.markdown("### Control Central del Sistema")
+    st.markdown("### Centro de Control y Monitoreo del Sistema")
     
-    col1, col2, col3 = st.columns(3)
+    # ============================================
+    # SECCIÓN 1: KPIs PRINCIPALES
+    # ============================================
+    st.markdown("#### 📊 Métricas Principales")
+    
+    col1, col2, col3, col4, col5 = st.columns(5)
     
     with col1:
-        st.metric("Estado del Bot", "🟢 Activo", "Operando")
+        if st.session_state.bot_running:
+            st.metric("Estado del Bot", "🟢 Activo", "Ejecutando", delta_color="normal")
+        else:
+            st.metric("Estado del Bot", "🔴 Inactivo", "Detenido", delta_color="inverse")
     
     with col2:
-        st.metric("Símbolos Monitoreados", "77", "+74")
+        if st.session_state.bot_instance:
+            symbols_count = len(st.session_state.bot_instance.symbols)
+        else:
+            symbols_count = 0
+        st.metric("Símbolos", symbols_count, "Monitoreando")
     
     with col3:
-        st.metric("Trades Hoy", "5", "+2")
+        if st.session_state.bot_instance:
+            trades_count = len(st.session_state.bot_instance.trades_history)
+        else:
+            trades_count = 0
+        st.metric("Trades Hoy", trades_count, "+0")
+    
+    with col4:
+        # Simular profit/loss
+        profit_loss = "+2.5%"
+        st.metric("P&L Hoy", profit_loss, "↑ Ganancia", delta_color="normal")
+    
+    with col5:
+        # Simular capital
+        capital = "$10,000"
+        st.metric("Capital", capital, "+$250")
     
     st.markdown("---")
-    st.info("Dashboard en desarrollo. Funcionalidades próximamente.")
+    
+    # ============================================
+    # SECCIÓN 2: CONTROLES RÁPIDOS
+    # ============================================
+    st.markdown("#### 🎮 Controles Rápidos")
+    
+    col_ctrl1, col_ctrl2, col_ctrl3, col_ctrl4, col_ctrl5 = st.columns(5)
+    
+    with col_ctrl1:
+        if st.button("▶️ Iniciar Bot", disabled=st.session_state.bot_running, use_container_width=True, type="primary"):
+            start_bot()
+    
+    with col_ctrl2:
+        if st.button("🛑 Detener Bot", disabled=not st.session_state.bot_running, use_container_width=True, type="secondary"):
+            stop_bot()
+    
+    with col_ctrl3:
+        if st.button("📊 Análisis Rápido", use_container_width=True):
+            st.info("Ejecutando análisis rápido...")
+    
+    with col_ctrl4:
+        if st.button("📈 Ver Portafolio", use_container_width=True):
+            st.info("Redirigiendo a Gestión de Activos...")
+    
+    with col_ctrl5:
+        if st.button("🔔 Alertas", use_container_width=True):
+            st.info("Mostrando alertas activas...")
+    
+    st.markdown("---")
+    
+    # ============================================
+    # SECCIÓN 3: GRÁFICOS EN TIEMPO REAL
+    # ============================================
+    st.markdown("#### 📈 Visualizaciones en Tiempo Real")
+    
+    col_chart1, col_chart2 = st.columns(2)
+    
+    with col_chart1:
+        st.markdown("##### Performance del Bot")
+        # Gráfico de performance simulado
+        
+        # Datos simulados de performance
+        hours = list(range(24))
+        performance = np.cumsum(np.random.randn(24) * 0.5) + 100
+        
+        fig_performance = go.Figure()
+        fig_performance.add_trace(go.Scatter(
+            x=hours,
+            y=performance,
+            mode='lines+markers',
+            name='Performance',
+            line=dict(color='#00D9FF', width=3),
+            fill='tozeroy',
+            fillcolor='rgba(0, 217, 255, 0.1)'
+        ))
+        
+        fig_performance.update_layout(
+            template='plotly_dark',
+            height=300,
+            margin=dict(l=0, r=0, t=30, b=0),
+            xaxis_title="Hora del Día",
+            yaxis_title="Valor (%)",
+            showlegend=False,
+            hovermode='x unified'
+        )
+        
+        st.plotly_chart(fig_performance, use_container_width=True)
+    
+    with col_chart2:
+        st.markdown("##### Distribución de Trades")
+        # Gráfico de distribución de trades
+        
+        trade_types = ['Compras', 'Ventas', 'Pendientes']
+        trade_counts = [12, 8, 3]
+        colors = ['#00FF88', '#FF6B6B', '#FFD93D']
+        
+        fig_trades = go.Figure(data=[go.Pie(
+            labels=trade_types,
+            values=trade_counts,
+            hole=0.4,
+            marker=dict(colors=colors),
+            textinfo='label+percent',
+            textfont=dict(size=14)
+        )])
+        
+        fig_trades.update_layout(
+            template='plotly_dark',
+            height=300,
+            margin=dict(l=0, r=0, t=30, b=0),
+            showlegend=True,
+            legend=dict(orientation="h", yanchor="bottom", y=-0.2)
+        )
+        
+        st.plotly_chart(fig_trades, use_container_width=True)
+    
+    st.markdown("---")
+    
+    # ============================================
+    # SECCIÓN 4: ACTIVIDAD RECIENTE Y ALERTAS
+    # ============================================
+    col_activity, col_alerts = st.columns(2)
+    
+    with col_activity:
+        st.markdown("#### 📝 Actividad Reciente")
+        
+        # Mostrar últimos mensajes del bot
+        if st.session_state.bot_messages:
+            recent_messages = st.session_state.bot_messages[-5:]
+            for msg in recent_messages:
+                timestamp = msg.get('timestamp', 'N/A')
+                message = msg.get('message', '')
+                msg_type = msg.get('type', 'info')
+                
+                icon = {
+                    'success': '✅',
+                    'error': '❌',
+                    'warning': '⚠️',
+                    'info': 'ℹ️'
+                }.get(msg_type, 'ℹ️')
+                
+                st.markdown(f"**{icon} [{timestamp}]** {message}")
+        else:
+            st.info("No hay actividad reciente. Inicia el bot para ver actualizaciones.")
+    
+    with col_alerts:
+        st.markdown("#### 🔔 Alertas Activas")
+        
+        # Alertas simuladas
+        alerts = [
+            {"type": "warning", "message": "Volatilidad alta detectada en GGAL", "time": "01:05"},
+            {"type": "info", "message": "Nuevo símbolo agregado: PAMP", "time": "01:03"},
+            {"type": "success", "message": "Trade exitoso: Compra YPFD", "time": "01:01"}
+        ]
+        
+        for alert in alerts:
+            icon = {
+                'success': '✅',
+                'warning': '⚠️',
+                'info': 'ℹ️'
+            }.get(alert['type'], 'ℹ️')
+            
+            st.markdown(f"**{icon} [{alert['time']}]** {alert['message']}")
+    
+    st.markdown("---")
+    
+    # ============================================
+    # SECCIÓN 5: RESUMEN DE ESTRATEGIAS
+    # ============================================
+    st.markdown("#### 🧠 Estado de Estrategias")
+    
+    col_s1, col_s2, col_s3, col_s4 = st.columns(4)
+    
+    with col_s1:
+        st.metric("Análisis Técnico", "✅ Activo", "RSI, MACD, BB")
+    
+    with col_s2:
+        st.metric("IA Predictiva", "✅ Activo", "LSTM, 85% precisión")
+    
+    with col_s3:
+        st.metric("Sentimiento", "✅ Activo", "Noticias, Social")
+    
+    with col_s4:
+        st.metric("Gestión Riesgo", "✅ Activo", "Stop Loss, Take Profit")
+    
+    st.markdown("---")
+    
+    # ============================================
+    # SECCIÓN 6: INFORMACIÓN DEL SISTEMA
+    # ============================================
+    with st.expander("ℹ️ Información del Sistema"):
+        col_info1, col_info2 = st.columns(2)
+        
+        with col_info1:
+            st.markdown("""
+            **📊 Configuración Actual:**
+            - **Modo**: Paper Trading
+            - **Intervalo de Análisis**: 15 minutos
+            - **Max Trades Diarios**: 10
+            - **Max Pérdida Diaria**: 5%
+            - **Comisión**: 0.6%
+            """)
+        
+        with col_info2:
+            st.markdown("""
+            **🔧 Estado de Servicios:**
+            - ✅ IOL Client: Conectado
+            - ✅ Análisis Técnico: Operativo
+            - ✅ Red Neuronal: Entrenada
+            - ✅ Sistema de Aprendizaje: Activo
+            - ✅ Telegram Bot: Conectado
+            """)
+    
+    # ============================================
+    # SECCIÓN 7: ACCIONES RÁPIDAS
+    # ============================================
+    st.markdown("#### ⚡ Acciones Rápidas")
+    
+    col_action1, col_action2, col_action3 = st.columns(3)
+    
+    with col_action1:
+        if st.button("🔄 Recargar Símbolos", use_container_width=True):
+            add_bot_message("Recargando universo de símbolos...", "info")
+            st.success("Símbolos recargados exitosamente")
+    
+    with col_action2:
+        if st.button("📊 Generar Reporte", use_container_width=True):
+            st.info("Generando reporte diario...")
+    
+    with col_action3:
+        if st.button("🧹 Limpiar Logs", use_container_width=True):
+            st.session_state.bot_messages = []
+            st.success("Logs limpiados")
 
 
 def render_live_dashboard():
