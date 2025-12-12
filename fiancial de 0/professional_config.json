@@ -1,0 +1,78 @@
+{
+  "version": "1.1.0",
+  "trading": {
+    "mode": "paper",
+    "max_position_size": 0.1,
+    "max_daily_trades": 10,
+    "max_daily_loss": 0.05,
+    "commission_rate": 0.006
+  },
+  "monitoring": {
+    "use_full_universe": true,
+    "max_symbols": 500,
+    "universe_categories": [
+      "acciones",
+      "cedears",
+      "bonos",
+      "obligaciones",
+      "letras",
+      "fondos"
+    ],
+    "update_interval_minutes": 15
+  },
+  "risk_management": {
+    "stop_loss_percentage": 0.02,
+    "take_profit_percentage": 0.04,
+    "trailing_stop": true,
+    "trailing_stop_percentage": 0.015,
+    "max_portfolio_risk": 0.2
+  },
+  "strategies": {
+    "technical_analysis": {
+      "enabled": true,
+      "weight": 0.3,
+      "indicators": ["RSI", "MACD", "BB", "SMA", "EMA"]
+    },
+    "sentiment_analysis": {
+      "enabled": true,
+      "weight": 0.2
+    },
+    "lstm_prediction": {
+      "enabled": true,
+      "weight": 0.25
+    },
+    "quantum_analysis": {
+      "enabled": true,
+      "weight": 0.15
+    },
+    "correlation_analysis": {
+      "enabled": true,
+      "weight": 0.1
+    }
+  },
+  "learning": {
+    "continuous_learning": true,
+    "auto_retraining": true,
+    "meta_learning": true,
+    "unlimited_learning": true
+  },
+  "notifications": {
+    "telegram_enabled": true,
+    "alert_on_trade": true,
+    "alert_on_error": true,
+    "daily_report": true
+  },
+  "optimization": {
+    "genetic_algorithm": {
+      "enabled": true,
+      "population_size": 50,
+      "generations": 20
+    },
+    "hyperparameter_tuning": true
+  },
+  "logging": {
+    "level": "INFO",
+    "save_to_file": true,
+    "max_log_size_mb": 100
+  }
+}

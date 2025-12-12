@@ -1,0 +1,77 @@
+# Core Dependencies
+python-dotenv==1.0.0
+requests==2.31.0
+pandas==2.1.4
+numpy==1.26.2
+
+# Web Framework
+streamlit==1.29.0
+plotly==5.18.0
+
+# Machine Learning
+tensorflow==2.15.0
+scikit-learn==1.3.2
+deap==1.4.1
+
+# Technical Analysis
+ta-lib==0.4.28
+pandas-ta==0.3.14b0
+
+# Telegram
+python-telegram-bot==20.7
+
+# Web Search
+duckduckgo-search==4.1.1
+beautifulsoup4==4.12.2
+lxml==4.9.3
+
+# Database
+sqlalchemy==2.0.23
+
+# Utilities
+pytz==2023.3
+colorama==0.4.6
+tqdm==4.66.1
+
+# Testing
+pytest==7.4.3
+pytest-cov==4.1.0
+
+# Logging
+loguru==0.7.2
+
+# API Clients
+yfinance==0.2.33
+sqlalchemy
+pandas
+numpy
+requests
+python-dotenv
+pydantic-settings
+pydantic
+yfinance
+tensorflow
+scikit-learn
+matplotlib
+seaborn
+ta
+scipy
+streamlit
+plotly
+transformers
+torch
+newsapi-python
+python-telegram-bot
+arch
+feedparser
+beautifulsoup4
+nest_asyncio
+psutil
+pytest
+pytest-cov
+pytest-mock
+fastapi
+uvicorn
+pyyaml
+keyring
+cryptography

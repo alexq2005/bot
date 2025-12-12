@@ -1,0 +1,65 @@
+# Archivos de Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Entornos virtuales
+venv/
+ENV/
+env/
+.venv
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Datos sensibles
+.env
+*.db
+*.sqlite
+*.sqlite3
+
+# Datos del bot
+data/
+logs/
+*.log
+
+# Modelos entrenados
+*.h5
+*.pkl
+*.joblib
+src/models/*.h5
+src/models/*.pkl
+
+# Jupyter Notebooks
+.ipynb_checkpoints
+*.ipynb
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
+
+# Temporales
+tmp/
+temp/
+*.tmp
