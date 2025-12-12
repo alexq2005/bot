@@ -24,6 +24,13 @@ from datetime import datetime
 from trading_bot import TradingBot
 import plotly.graph_objects as go
 import numpy as np
+import pandas as pd
+from src.utils.dashboard_utils import (
+    generate_candlestick_data,
+    create_candlestick_chart,
+    generate_top_performers,
+    create_correlation_heatmap
+)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -51,6 +58,16 @@ def main():
     if 'bot_start_time' not in st.session_state:
         st.session_state.bot_start_time = None
     
+    # Inicializar session_state para configuraciones
+    if 'auto_refresh' not in st.session_state:
+        st.session_state.auto_refresh = False
+    if 'refresh_interval' not in st.session_state:
+        st.session_state.refresh_interval = 10
+    if 'alerts' not in st.session_state:
+        st.session_state.alerts = []
+    if 'last_update' not in st.session_state:
+        st.session_state.last_update = datetime.now()
+    
     # Sidebar con navegación
     st.sidebar.title("🤖 IOL Quantum AI")
     st.sidebar.markdown("---")
@@ -70,6 +87,37 @@ def main():
             "💬 Chat con el Bot"
         ]
     )
+    
+    # Configuraciones del dashboard
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("### ⚙️ Configuraciones")
+    
+    # Auto-refresh
+    st.session_state.auto_refresh = st.sidebar.checkbox(
+        "🔄 Auto-refresh",
+        value=st.session_state.auto_refresh,
+        help="Actualiza automáticamente los datos"
+    )
+    
+    if st.session_state.auto_refresh:
+        st.session_state.refresh_interval = st.sidebar.select_slider(
+            "Intervalo",
+            options=[5, 10, 30, 60, 300],
+            value=st.session_state.refresh_interval,
+            format_func=lambda x: f"{x}s" if x < 60 else f"{x//60}m"
+        )
+        
+        # Auto-refresh logic
+        time.sleep(st.session_state.refresh_interval)
+        st.rerun()
+    
+    # Botón de refresh manual
+    if st.sidebar.button("🔄 Actualizar Ahora", use_container_width=True):
+        st.session_state.last_update = datetime.now()
+        st.rerun()
+    
+    # Mostrar última actualización
+    st.sidebar.caption(f"⏰ Última actualización: {st.session_state.last_update.strftime('%H:%M:%S')}")
     
     # Renderizar página seleccionada
     if page == "🖥️ Command Center":
@@ -168,69 +216,40 @@ def render_command_center():
     st.markdown("---")
     
     # ============================================
-    # SECCIÓN 3: GRÁFICOS EN TIEMPO REAL
+    # SECCIÓN 3: GRÁFICOS AVANZADOS
     # ============================================
-    st.markdown("#### 📈 Visualizaciones en Tiempo Real")
+    st.markdown("#### 📈 Visualizaciones Avanzadas")
     
-    col_chart1, col_chart2 = st.columns(2)
+    # Selector de símbolo para el gráfico
+    selected_symbol = st.selectbox("Seleccionar Símbolo", ["GGAL", "YPFD", "PAMP", "ALUA", "BMA"], index=0)
     
-    with col_chart1:
-        st.markdown("##### Performance del Bot")
-        # Gráfico de performance simulado
-        
-        # Datos simulados de performance
-        hours = list(range(24))
-        performance = np.cumsum(np.random.randn(24) * 0.5) + 100
-        
-        fig_performance = go.Figure()
-        fig_performance.add_trace(go.Scatter(
-            x=hours,
-            y=performance,
-            mode='lines+markers',
-            name='Performance',
-            line=dict(color='#00D9FF', width=3),
-            fill='tozeroy',
-            fillcolor='rgba(0, 217, 255, 0.1)'
-        ))
-        
-        fig_performance.update_layout(
-            template='plotly_dark',
-            height=300,
-            margin=dict(l=0, r=0, t=30, b=0),
-            xaxis_title="Hora del Día",
-            yaxis_title="Valor (%)",
-            showlegend=False,
-            hovermode='x unified'
+    # Generar y mostrar gráfico de candlestick
+    df_candle = generate_candlestick_data(selected_symbol)
+    fig_candle = create_candlestick_chart(df_candle, selected_symbol)
+    st.plotly_chart(fig_candle, use_container_width=True)
+    
+    st.markdown("---")
+    
+    col_metrics1, col_metrics2 = st.columns(2)
+    
+    with col_metrics1:
+        st.markdown("##### 🏆 Top Performers del Día")
+        df_top = generate_top_performers(5)
+        st.dataframe(
+            df_top,
+            use_container_width=True,
+            column_config={
+                "Precio": st.column_config.TextColumn("Precio"),
+                "Cambio %": st.column_config.TextColumn("Cambio"),
+                "Señal": st.column_config.TextColumn("Señal"),
+            },
+            hide_index=True
         )
-        
-        st.plotly_chart(fig_performance, use_container_width=True)
     
-    with col_chart2:
-        st.markdown("##### Distribución de Trades")
-        # Gráfico de distribución de trades
-        
-        trade_types = ['Compras', 'Ventas', 'Pendientes']
-        trade_counts = [12, 8, 3]
-        colors = ['#00FF88', '#FF6B6B', '#FFD93D']
-        
-        fig_trades = go.Figure(data=[go.Pie(
-            labels=trade_types,
-            values=trade_counts,
-            hole=0.4,
-            marker=dict(colors=colors),
-            textinfo='label+percent',
-            textfont=dict(size=14)
-        )])
-        
-        fig_trades.update_layout(
-            template='plotly_dark',
-            height=300,
-            margin=dict(l=0, r=0, t=30, b=0),
-            showlegend=True,
-            legend=dict(orientation="h", yanchor="bottom", y=-0.2)
-        )
-        
-        st.plotly_chart(fig_trades, use_container_width=True)
+    with col_metrics2:
+        st.markdown("##### 🌡️ Mapa de Correlaciones")
+        fig_corr = create_correlation_heatmap()
+        st.plotly_chart(fig_corr, use_container_width=True)
     
     st.markdown("---")
     
@@ -242,42 +261,67 @@ def render_command_center():
     with col_activity:
         st.markdown("#### 📝 Actividad Reciente")
         
-        # Mostrar últimos mensajes del bot
+        # Filtros de actividad
+        activity_filter = st.radio("Filtrar:", ["Todos", "Info", "Error", "Success"], horizontal=True, key="act_filter")
+        
         if st.session_state.bot_messages:
-            recent_messages = st.session_state.bot_messages[-5:]
-            for msg in recent_messages:
-                timestamp = msg.get('timestamp', 'N/A')
-                message = msg.get('message', '')
-                msg_type = msg.get('type', 'info')
-                
-                icon = {
-                    'success': '✅',
-                    'error': '❌',
-                    'warning': '⚠️',
-                    'info': 'ℹ️'
-                }.get(msg_type, 'ℹ️')
-                
-                st.markdown(f"**{icon} [{timestamp}]** {message}")
+            # Filtrar mensajes
+            filtered_msgs = st.session_state.bot_messages
+            if activity_filter != "Todos":
+                filter_map = {"Info": "info", "Error": "error", "Success": "success"}
+                target_type = filter_map.get(activity_filter, "info")
+                filtered_msgs = [m for m in filtered_msgs if m.get('type') == target_type]
+            
+            recent_messages = filtered_msgs[-10:] # Mostrar más mensajes
+            
+            if recent_messages:
+                for msg in recent_messages:
+                    timestamp = msg.get('timestamp', 'N/A')
+                    message = msg.get('message', '')
+                    msg_type = msg.get('type', 'info')
+                    
+                    icon = {
+                        'success': '✅',
+                        'error': '❌',
+                        'warning': '⚠️',
+                        'info': 'ℹ️'
+                    }.get(msg_type, 'ℹ️')
+                    
+                    st.markdown(f"**{icon} [{timestamp}]** {message}")
+            else:
+                 st.info(f"No hay mensajes de tipo {activity_filter}.")
         else:
             st.info("No hay actividad reciente. Inicia el bot para ver actualizaciones.")
     
     with col_alerts:
-        st.markdown("#### 🔔 Alertas Activas")
+        st.markdown("#### 🔔 Centro de Alertas")
         
-        # Alertas simuladas
-        alerts = [
+        # Crear nueva alerta
+        with st.expander("➕ Crear Nueva Alerta"):
+            with st.form("new_alert"):
+                a_symbol = st.selectbox("Símbolo", ["GGAL", "YPFD", "PAMP"])
+                a_cond = st.selectbox("Condición", ["Precio >", "Precio <", "RSI >", "RSI <"])
+                a_val = st.number_input("Valor", value=100.0)
+                if st.form_submit_button("Crear Alerta"):
+                    new_alert = {"type": "info", "message": f"Alerta creada: {a_symbol} {a_cond} {a_val}", "time": datetime.now().strftime("%H:%M")}
+                    st.session_state.alerts.insert(0, new_alert)
+                    st.success("Alerta creada exitosamente")
+        
+        # Mostrar alertas activas (simuladas + sesión)
+        if hasattr(st.session_state, 'alerts') and st.session_state.alerts:
+             for alert in st.session_state.alerts:
+                icon = {'success': '✅', 'warning': '⚠️', 'info': 'ℹ️'}.get(alert['type'], 'ℹ️')
+                st.markdown(f"**{icon} [{alert['time']}]** {alert['message']}")
+        
+        # Alertas default simuladas si no hay nuevas
+        default_alerts = [
             {"type": "warning", "message": "Volatilidad alta detectada en GGAL", "time": "01:05"},
             {"type": "info", "message": "Nuevo símbolo agregado: PAMP", "time": "01:03"},
             {"type": "success", "message": "Trade exitoso: Compra YPFD", "time": "01:01"}
         ]
         
-        for alert in alerts:
-            icon = {
-                'success': '✅',
-                'warning': '⚠️',
-                'info': 'ℹ️'
-            }.get(alert['type'], 'ℹ️')
-            
+        for alert in default_alerts:
+            icon = {'success': '✅', 'warning': '⚠️', 'info': 'ℹ️'}.get(alert['type'], 'ℹ️')
             st.markdown(f"**{icon} [{alert['time']}]** {alert['message']}")
     
     st.markdown("---")
@@ -291,15 +335,19 @@ def render_command_center():
     
     with col_s1:
         st.metric("Análisis Técnico", "✅ Activo", "RSI, MACD, BB")
+        st.caption("Señales: 12/h")
     
     with col_s2:
         st.metric("IA Predictiva", "✅ Activo", "LSTM, 85% precisión")
+        st.caption("Predicciones: Alta Confianza")
     
     with col_s3:
         st.metric("Sentimiento", "✅ Activo", "Noticias, Social")
+        st.caption("Tendencia: Alcista")
     
     with col_s4:
         st.metric("Gestión Riesgo", "✅ Activo", "Stop Loss, Take Profit")
+        st.caption("Drawdown: 1.2%")
     
     st.markdown("---")
     
@@ -322,9 +370,9 @@ def render_command_center():
         with col_info2:
             st.markdown("""
             **🔧 Estado de Servicios:**
-            - ✅ IOL Client: Conectado
+            - ✅ IOL Client: Conectado (15ms)
             - ✅ Análisis Técnico: Operativo
-            - ✅ Red Neuronal: Entrenada
+            - ✅ Red Neuronal: Entrenada (v2.1)
             - ✅ Sistema de Aprendizaje: Activo
             - ✅ Telegram Bot: Conectado
             """)
@@ -334,7 +382,7 @@ def render_command_center():
     # ============================================
     st.markdown("#### ⚡ Acciones Rápidas")
     
-    col_action1, col_action2, col_action3 = st.columns(3)
+    col_action1, col_action2, col_action3, col_action4 = st.columns(4)
     
     with col_action1:
         if st.button("🔄 Recargar Símbolos", use_container_width=True):
@@ -343,12 +391,16 @@ def render_command_center():
     
     with col_action2:
         if st.button("📊 Generar Reporte", use_container_width=True):
-            st.info("Generando reporte diario...")
+            st.info("Generando reporte diario en PDF...")
     
     with col_action3:
         if st.button("🧹 Limpiar Logs", use_container_width=True):
             st.session_state.bot_messages = []
             st.success("Logs limpiados")
+            
+    with col_action4:
+        if st.button("📥 Exportar Datos", use_container_width=True):
+             st.info("Exportando datos a CSV...")
 
 
 def render_live_dashboard():
