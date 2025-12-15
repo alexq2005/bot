@@ -6,9 +6,11 @@ from typing import Optional
 
 from .config import settings
 from .iol_client import IOLClient
-from .strategy import HybridStrategy
+from .strategy import EvolutionaryStrategy
 from .news_service import NewsService
 from .ai_engine import AIEngine
+from .ml_engine import MLEngine
+from .risk_manager import RiskManager
 from .database import init_db, get_db, Trade, LogEntry, SentimentLog
 
 # Configure Logging
@@ -21,12 +23,16 @@ logger.addHandler(handler)
 
 class TradingBot:
     def __init__(self):
-        logger.info("🤖 Initializing IOL Professional Bot (AI-Enhanced)")
+        logger.info("🤖 Initializing IOL Evolutionary Bot (SOTA v2.0)")
 
         self.client = IOLClient()
-        self.strategy = HybridStrategy()
         self.news_service = NewsService()
         self.ai = AIEngine()
+
+        # Advanced Modules
+        self.ml_brain = MLEngine()
+        self.risk_manager = RiskManager()
+        self.strategy = EvolutionaryStrategy(self.ml_brain)
 
         # Initialize Database
         init_db()
@@ -35,8 +41,14 @@ class TradingBot:
 
     def run(self):
         """Main Bot Loop"""
-        logger.info("🚀 Starting Bot Loop")
+        logger.info("🚀 Starting Evolutionary Bot Loop")
         self.running = True
+
+        # Initial Evolution (Retrain on startup)
+        try:
+            self.ml_brain.train_model()
+        except Exception as e:
+            logger.warning(f"Initial training skipped: {e}")
 
         # Authentication
         if not self.client.authenticate():
@@ -49,7 +61,7 @@ class TradingBot:
 
                 # Sleep interval
                 logger.info("💤 Sleeping for next cycle...")
-                time.sleep(60) # Increased to 60s for safety and rate limiting
+                time.sleep(60)
 
             except KeyboardInterrupt:
                 logger.info("🛑 Bot stopped by user.")
@@ -75,23 +87,29 @@ class TradingBot:
         # Log sentiment for future learning
         self._log_sentiment(symbol, news, sentiment_score)
 
-        # 3. Hybrid Analysis (Tech + AI)
-        analysis = self.strategy.analyze(symbol, history, sentiment_score)
+        # 3. Calculate Volatility (Risk)
+        atr = self.risk_manager.calculate_atr(history)
+
+        # 4. Evolutionary Analysis (Tech + AI + ML)
+        analysis = self.strategy.analyze(symbol, history, sentiment_score, atr)
         signal = analysis.get("signal")
         price = analysis.get("price")
 
-        # 4. Execute with Safety Checks
+        # 5. Execute with Institutional Risk Management
         current_position = self.get_current_position(symbol)
 
         if "BUY" in signal:
             if current_position == 0:
-                self.execute_trade(symbol, "BUY", 10, price, signal)
+                # Dynamic Position Sizing
+                quantity = self.risk_manager.calculate_position_size(symbol, price, atr)
+                self.execute_trade(symbol, "BUY", quantity, price, signal)
             else:
                 logger.info(f"⚠️ Signal BUY ignored: Already holding {symbol}")
 
         elif "SELL" in signal:
             if current_position > 0:
-                self.execute_trade(symbol, "SELL", 10, price, signal)
+                # Sell all for simplicity in this version, or manage scaling out
+                self.execute_trade(symbol, "SELL", current_position, price, signal)
             else:
                 logger.info(f"⚠️ Signal SELL ignored: No position in {symbol}")
 

@@ -1,10 +1,13 @@
 import pytest
-from src.strategy import HybridStrategy
+from unittest.mock import MagicMock
+from src.strategy import EvolutionaryStrategy
 from src.config import settings
 
 @pytest.fixture
 def strategy():
-    return HybridStrategy()
+    mock_ml = MagicMock()
+    mock_ml.predict_profitability.return_value = 0.8 # High win prob
+    return EvolutionaryStrategy(mock_ml)
 
 def test_strategy_empty_data(strategy):
     result = strategy.analyze("TEST", [])
@@ -32,7 +35,7 @@ def test_strategy_integration_mock(strategy):
         })
         price *= 1.01 # Uptrend
 
-    result = strategy.analyze("TEST", data)
+    result = strategy.analyze("TEST", data, atr=2.5)
 
     # We expect indicators to be calculated
     assert "indicators" in result

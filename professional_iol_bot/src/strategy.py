@@ -6,19 +6,18 @@ from .config import settings
 
 logger = logging.getLogger(__name__)
 
-class HybridStrategy:
+class EvolutionaryStrategy:
     """
-    Implements an AI-Enhanced Hybrid Strategy.
-    Combines Technical Analysis (60%) with AI Sentiment Analysis (40%).
+    SOTA Strategy: Technicals + AI Sentiment + ML Probability Validation.
+    The ultimate decision maker.
     """
 
-    def analyze(self, symbol: str, data: List[Dict], sentiment_score: float = 0.0) -> Dict[str, Any]:
+    def __init__(self, ml_engine):
+        self.ml = ml_engine
+
+    def analyze(self, symbol: str, data: List[Dict], sentiment_score: float = 0.0, atr: float = 0.0) -> Dict[str, Any]:
         """
-        Returns a trading signal based on Tech + AI.
-
-        Sentiment Logic:
-        - > 0.15: Bullish Bias (+1 to score)
-        - < -0.15: Bearish Bias (-1 to score)
+        Returns a trading signal verified by the ML Brain.
         """
         if not data:
             return {"signal": "HOLD", "reason": "No data"}
@@ -74,15 +73,22 @@ class HybridStrategy:
 
         final_score = tech_score + sentiment_adjustment
 
+        # 4. ML Validation (The Gatekeeper)
+        # Ask the Brain: "Is this a winning setup?"
+        win_probability = self.ml.predict_profitability(rsi, macd_line, sentiment_score, atr)
+
         signal = "HOLD"
-        if final_score >= 1.5:
-            signal = "STRONG_BUY"
-        elif final_score >= 0.5:
-            signal = "BUY"
-        elif final_score <= -1.5:
-            signal = "STRONG_SELL"
+
+        # Only trade if Score is high AND ML confirms probability > 60%
+        if final_score >= 0.5:
+            if win_probability > 0.60:
+                signal = "STRONG_BUY" if final_score >= 1.5 else "BUY"
+                reasons.append(f"ML Confirmed (Prob {win_probability:.0%})")
+            else:
+                reasons.append(f"ML Rejected (Prob {win_probability:.0%})")
+
         elif final_score <= -0.5:
-            signal = "SELL"
+            signal = "STRONG_SELL" if final_score <= -1.5 else "SELL"
 
         result = {
             "symbol": symbol,
@@ -92,10 +98,11 @@ class HybridStrategy:
                 "rsi": round(rsi, 2),
                 "macd": round(macd_line, 4),
                 "tech_score": tech_score,
-                "sentiment_score": sentiment_score
+                "sentiment_score": sentiment_score,
+                "ml_probability": win_probability
             },
             "reason": ", ".join(reasons)
         }
 
-        logger.info(f"🧠 Hybrid Analysis {symbol}: {signal} (Tech:{tech_score} + AI:{sentiment_adjustment} = {final_score})")
+        logger.info(f"🧬 Evolutionary Analysis {symbol}: {signal} | Score: {final_score} | ML Prob: {win_probability:.2f}")
         return result
