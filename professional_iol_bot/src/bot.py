@@ -12,6 +12,7 @@ from .ai_engine import AIEngine
 from .ml_engine import MLEngine
 from .risk_manager import RiskManager
 from .reasoning_engine import ReasoningEngine
+from .telegram_service import TelegramService
 from .database import init_db, get_db, Trade, LogEntry, SentimentLog
 
 # Configure Logging
@@ -34,6 +35,7 @@ class TradingBot:
         self.ml_brain = MLEngine()
         self.risk_manager = RiskManager()
         self.reasoning = ReasoningEngine()
+        self.telegram = TelegramService()
         self.strategy = EvolutionaryStrategy(self.ml_brain)
 
         # Initialize Database
@@ -112,7 +114,7 @@ class TradingBot:
         price = analysis.get("price")
 
         # 6. Reasoning Output
-        self.reasoning.explain_decision(
+        thesis = self.reasoning.explain_decision(
             symbol,
             analysis['indicators']['rsi'],
             sentiment_score,
@@ -126,14 +128,16 @@ class TradingBot:
             if current_position == 0:
                 # Dynamic Position Sizing
                 quantity = self.risk_manager.calculate_position_size(symbol, price, atr)
-                self.execute_trade(symbol, "BUY", quantity, price, signal)
+                if self.execute_trade(symbol, "BUY", quantity, price, signal):
+                    self.telegram.send_alert(f"🟢 **BUY EXECUTION**\n{thesis}")
             else:
                 logger.info(f"⚠️ Signal BUY ignored: Already holding {symbol}")
 
         elif "SELL" in signal:
             if current_position > 0:
                 # Sell all for simplicity in this version, or manage scaling out
-                self.execute_trade(symbol, "SELL", current_position, price, signal)
+                if self.execute_trade(symbol, "SELL", current_position, price, signal):
+                    self.telegram.send_alert(f"🔴 **SELL EXECUTION**\n{thesis}")
             else:
                 logger.info(f"⚠️ Signal SELL ignored: No position in {symbol}")
 
@@ -178,7 +182,7 @@ class TradingBot:
         except Exception as e:
             logger.error(f"Failed to log sentiment: {e}")
 
-    def execute_trade(self, symbol: str, side: str, quantity: int, price: float, signal: str):
+    def execute_trade(self, symbol: str, side: str, quantity: int, price: float, signal: str) -> bool:
         """Executes and logs a trade"""
         logger.info(f"⚡ Executing {side} Order for {symbol}")
 
@@ -187,6 +191,8 @@ class TradingBot:
         if success:
             self.save_trade(symbol, side, quantity, price, signal)
             logger.info(f"✅ Trade Successful: {side} {quantity} {symbol}")
+            return True
+        return False
 
     def save_trade(self, symbol, side, quantity, price, signal):
         """Persists trade to DB"""

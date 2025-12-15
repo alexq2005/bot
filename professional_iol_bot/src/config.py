@@ -19,6 +19,10 @@ class Settings(BaseSettings):
     ALPHA_VANTAGE_API_KEY: Optional[str] = Field(None, env='ALPHA_VANTAGE_API_KEY')
     NEWS_API_KEY: Optional[str] = Field(None, env='NEWS_API_KEY')
 
+    # Telegram Notifications
+    TELEGRAM_TOKEN: Optional[str] = Field(None, env='TELEGRAM_TOKEN')
+    TELEGRAM_CHAT_ID: Optional[str] = Field(None, env='TELEGRAM_CHAT_ID')
+
     # Strategy Parameters
     RSI_PERIOD: int = 14
     RSI_OVERBOUGHT: int = 70
