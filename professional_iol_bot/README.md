@@ -34,10 +34,22 @@ MOCK_MODE=True
 
 ### 3. Running the Bot
 
+**Simulation Mode (Default):**
+Uses fake data and simulates orders. Safe for testing.
 ```bash
-# Run from the root directory
+# In .env: MOCK_MODE=True
 python -m src.bot
 ```
+
+**Live Trading Mode (REAL MONEY):**
+Connects to IOL API and executes real orders.
+1. Set `MOCK_MODE=False` in your `.env` file.
+2. Ensure `IOL_USERNAME` and `IOL_PASSWORD` are correct.
+3. Run the bot:
+```bash
+python -m src.bot
+```
+⚠️ **WARNING**: Live mode involves financial risk. The developers are not responsible for any losses incurred.
 
 ### 4. Running Tests
 
@@ -48,7 +60,7 @@ pytest tests/
 ## 🏗 Architecture
 
 *   `src/bot.py`: Main orchestration loop.
-*   `src/client.py`: IOL API wrapper (with Mock support).
+*   `src/iol_client.py`: IOL API wrapper (with Mock support).
 *   `src/strategy.py`: Technical Analysis logic.
 *   `src/database.py`: SQLite persistence layer.
 *   `tests/`: Unit and integration tests.

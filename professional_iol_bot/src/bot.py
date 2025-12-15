@@ -45,7 +45,7 @@ class TradingBot:
 
                 # Sleep interval
                 logger.info("💤 Sleeping for next cycle...")
-                time.sleep(5) # Short sleep for demo purposes (real would be longer)
+                time.sleep(60) # Increased to 60s for safety and rate limiting
 
             except KeyboardInterrupt:
                 logger.info("🛑 Bot stopped by user.")
@@ -67,13 +67,39 @@ class TradingBot:
         signal = analysis.get("signal")
         price = analysis.get("price")
 
-        # 3. Execute
+        # 3. Execute with Safety Checks
+        current_position = self.get_current_position(symbol)
+
         if "BUY" in signal:
-            self.execute_trade(symbol, "BUY", 10, price, signal)
+            if current_position == 0:
+                self.execute_trade(symbol, "BUY", 10, price, signal)
+            else:
+                logger.info(f"⚠️ Signal BUY ignored: Already holding {symbol}")
+
         elif "SELL" in signal:
-            self.execute_trade(symbol, "SELL", 10, price, signal)
+            if current_position > 0:
+                self.execute_trade(symbol, "SELL", 10, price, signal)
+            else:
+                logger.info(f"⚠️ Signal SELL ignored: No position in {symbol}")
+
         else:
             logger.info(f"⏸️ No Action: {signal}")
+
+    def get_current_position(self, symbol: str) -> int:
+        """Calculates current position from DB history"""
+        try:
+            with get_db() as db:
+                trades = db.query(Trade).filter(Trade.symbol == symbol).all()
+                position = 0
+                for t in trades:
+                    if t.side == "BUY":
+                        position += t.quantity
+                    elif t.side == "SELL":
+                        position -= t.quantity
+                return position
+        except Exception as e:
+            logger.error(f"Failed to calculate position: {e}")
+            return 0
 
     def execute_trade(self, symbol: str, side: str, quantity: int, price: float, signal: str):
         """Executes and logs a trade"""
