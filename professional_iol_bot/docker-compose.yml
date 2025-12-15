@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  # Main Trading Bot Service
+  bot:
+    build: .
+    container_name: iol_bot
+    restart: unless-stopped
+    environment:
+      - IOL_USERNAME=${IOL_USERNAME}
+      - IOL_PASSWORD=${IOL_PASSWORD}
+      - NEWSDATA_API_KEY=${NEWSDATA_API_KEY}
+      - FINNHUB_API_KEY=${FINNHUB_API_KEY}
+      - ALPHA_VANTAGE_API_KEY=${ALPHA_VANTAGE_API_KEY}
+      - NEWS_API_KEY=${NEWS_API_KEY}
+      - MOCK_MODE=${MOCK_MODE:-True}
+      - DB_URL=sqlite:////data/trades.db
+    volumes:
+      - ./data:/data # Persist database
+      - ./logs:/app/logs
+
+  # Dashboard Service (Streamlit)
+  dashboard:
+    build: .
+    container_name: iol_dashboard
+    restart: unless-stopped
+    command: streamlit run dashboard.py --server.port 8501 --server.address 0.0.0.0
+    ports:
+      - "8501:8501"
+    environment:
+      - DB_URL=sqlite:////data/trades.db
+    volumes:
+      - ./data:/data
+    depends_on:
+      - bot
