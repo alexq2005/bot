@@ -6,7 +6,7 @@ from src.config import settings
 @pytest.fixture
 def strategy():
     mock_ml = MagicMock()
-    mock_ml.predict_profitability.return_value = 0.8 # High win prob
+    mock_ml.predict_action.return_value = 1 # Action: BUY
     return EvolutionaryStrategy(mock_ml)
 
 def test_strategy_empty_data(strategy):
@@ -40,3 +40,4 @@ def test_strategy_integration_mock(strategy):
     # We expect indicators to be calculated
     assert "indicators" in result
     assert result["indicators"]["rsi"] is not None
+    assert result["signal"] == "BUY" # Because mock predicted action 1

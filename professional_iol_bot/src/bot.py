@@ -90,13 +90,14 @@ class TradingBot:
         # 3. Calculate Volatility (Risk)
         atr = self.risk_manager.calculate_atr(history)
 
-        # 4. Evolutionary Analysis (Tech + AI + ML)
-        analysis = self.strategy.analyze(symbol, history, sentiment_score, atr)
+        # 4. Execute with Institutional Risk Management
+        current_position = self.get_current_position(symbol)
+
+        # 5. Evolutionary Analysis (Tech + AI + ML)
+        # We pass current position to the RL Brain so it knows context (Hold vs Buy vs Sell)
+        analysis = self.strategy.analyze(symbol, history, sentiment_score, atr, current_position)
         signal = analysis.get("signal")
         price = analysis.get("price")
-
-        # 5. Execute with Institutional Risk Management
-        current_position = self.get_current_position(symbol)
 
         if "BUY" in signal:
             if current_position == 0:

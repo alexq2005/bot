@@ -12,3 +12,8 @@ textblob
 scikit-learn
 streamlit
 plotly
+torch
+transformers
+gymnasium
+stable-baselines3
+shimmy

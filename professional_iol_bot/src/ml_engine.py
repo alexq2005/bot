@@ -3,21 +3,20 @@ import joblib
 import pandas as pd
 import numpy as np
 import os
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.model_selection import train_test_split
+from stable_baselines3 import PPO
 from typing import Dict, List
 from .database import get_db, Trade, SentimentLog
+from .rl_agent import TradingEnv
 
 logger = logging.getLogger(__name__)
 
 class MLEngine:
     """
-    Self-Improving Machine Learning Brain.
-    Predicts: Will this trade be profitable?
-    Algorithm: Random Forest
+    Next-Gen AI Brain using Deep Reinforcement Learning (PPO).
+    The agent learns optimal policies by simulating market interactions.
     """
 
-    MODEL_PATH = "ml_brain.joblib"
+    MODEL_PATH = "drl_agent.zip"
 
     def __init__(self):
         self.model = None
@@ -26,60 +25,61 @@ class MLEngine:
     def _load_model(self):
         if os.path.exists(self.MODEL_PATH):
             try:
-                self.model = joblib.load(self.MODEL_PATH)
-                logger.info("🧠 Loaded existing ML Brain")
+                self.model = PPO.load(self.MODEL_PATH)
+                logger.info("🧠 Loaded Deep RL Agent")
             except:
-                logger.warning("Could not load ML Brain, starting fresh")
+                logger.warning("Could not load RL Agent, starting fresh")
         else:
-            logger.info("🆕 No ML Brain found. Waiting for training data.")
+            logger.info("🆕 No RL Agent found. Waiting for training.")
 
-    def predict_profitability(self, rsi: float, macd: float, sentiment: float, atr: float) -> float:
+    def predict_action(self, rsi: float, macd: float, sentiment: float, position_status: int) -> int:
         """
-        Returns probability of profit (0.0 to 1.0).
-        If model is not trained yet, returns 0.5 (Neutral).
+        Asks the RL Agent for the best action.
+        Returns: 0 (Hold), 1 (Buy), 2 (Sell)
         """
         if not self.model:
-            return 0.5
+            return 0 # Hold
 
-        # Features must match training data
-        features = np.array([[rsi, macd, sentiment, atr]])
+        # Observation must match environment space: [Price(ignored here), RSI, MACD, Sentiment, PosStatus]
+        # Note: Price is less relevant for the policy if we use normalized indicators,
+        # but the env expects 5 values. We pass 0 for price as placeholder if we only care about relative indicators.
+        obs = np.array([0.0, rsi, macd, sentiment, position_status], dtype=np.float32)
+
         try:
-            # Predict probability of class 1 (Win)
-            prob = self.model.predict_proba(features)[0][1]
-            logger.info(f"🔮 ML Prediction: Win Probability = {prob:.2%}")
-            return prob
+            action, _states = self.model.predict(obs, deterministic=True)
+            logger.info(f"🤖 RL Agent chose action: {action}")
+            return int(action)
         except Exception as e:
-            logger.error(f"Prediction failed: {e}")
-            return 0.5
+            logger.error(f"RL Prediction failed: {e}")
+            return 0
 
     def train_model(self):
         """
-        Evolutionary Step: Retrains the model using DB history.
-        Should be called periodically (e.g., daily).
+        Evolutionary Step: Retrains the RL Agent using simulated environment.
         """
-        logger.info("🎓 Starting Evolutionary Training...")
+        logger.info("🎓 Starting Deep RL Training...")
 
-        # 1. Fetch Data from DB
-        # Ideally, we need to join Trades with Market Conditions at that time.
-        # For this prototype, we'll simulate a dataset generation or assume we logged features.
-        # TODO: In production, we must log 'features_at_entry' in the Trade table.
+        # 1. Create Simulation Data
+        # In a real scenario, this comes from DB history or fetched historical data
+        dates = pd.date_range(start='2023-01-01', periods=200)
+        data = {
+            'close': np.random.uniform(100, 200, 200),
+            'RSI_14': np.random.uniform(20, 80, 200),
+            'MACD_12_26_9': np.random.uniform(-5, 5, 200),
+            'sentiment': np.random.uniform(-1, 1, 200)
+        }
+        df = pd.DataFrame(data)
 
-        # Simulating data for structure (RSI, MACD, Sentiment, ATR, RESULT)
-        # Result: 1 if Trade was Profitable, 0 otherwise
+        # 2. Initialize Environment
+        env = TradingEnv(df)
 
-        # Real implementation would query DB here
-        # df = pd.read_sql(...)
+        # 3. Train Agent (PPO)
+        try:
+            model = PPO("MlpPolicy", env, verbose=0)
+            model.learn(total_timesteps=10000)
 
-        # Check if we have enough data (e.g. > 50 trades)
-        # if len(df) < 50: return
-
-        # Placeholder training logic for demo
-        X_train = np.random.rand(100, 4) # Fake features
-        y_train = np.random.randint(0, 2, 100) # Fake targets
-
-        clf = RandomForestClassifier(n_estimators=100, max_depth=5, random_state=42)
-        clf.fit(X_train, y_train)
-
-        self.model = clf
-        joblib.dump(self.model, self.MODEL_PATH)
-        logger.info("✅ ML Brain Evolved & Saved.")
+            self.model = model
+            model.save(self.MODEL_PATH)
+            logger.info("✅ Deep RL Agent Evolved & Saved.")
+        except Exception as e:
+            logger.error(f"Training failed: {e}")
