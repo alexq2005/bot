@@ -6,8 +6,10 @@ from typing import Optional
 
 from .config import settings
 from .iol_client import IOLClient
-from .strategy import TechnicalStrategy
-from .database import init_db, get_db, Trade, LogEntry
+from .strategy import HybridStrategy
+from .news_service import NewsService
+from .ai_engine import AIEngine
+from .database import init_db, get_db, Trade, LogEntry, SentimentLog
 
 # Configure Logging
 logger = logging.getLogger("IOLBot")
@@ -19,10 +21,12 @@ logger.addHandler(handler)
 
 class TradingBot:
     def __init__(self):
-        logger.info("🤖 Initializing IOL Professional Bot")
+        logger.info("🤖 Initializing IOL Professional Bot (AI-Enhanced)")
 
         self.client = IOLClient()
-        self.strategy = TechnicalStrategy()
+        self.strategy = HybridStrategy()
+        self.news_service = NewsService()
+        self.ai = AIEngine()
 
         # Initialize Database
         init_db()
@@ -59,15 +63,24 @@ class TradingBot:
         symbol = settings.TRADING_SYMBOL
         logger.info(f"🔍 Analyzing {symbol}...")
 
-        # 1. Get Data
+        # 1. Get Market Data (Technical)
         history = self.client.get_historical_data(symbol)
 
-        # 2. Analyze
-        analysis = self.strategy.analyze(symbol, history)
+        # 2. Get AI Sentiment (Fundamental)
+        logger.info(f"📰 Gathering Intelligence for {symbol}...")
+        # Search for symbol + "Economy" to get broader context
+        news = self.news_service.get_news(query=f"{symbol} Argentina Economy")
+        sentiment_score = self.ai.analyze_sentiment(news)
+
+        # Log sentiment for future learning
+        self._log_sentiment(symbol, news, sentiment_score)
+
+        # 3. Hybrid Analysis (Tech + AI)
+        analysis = self.strategy.analyze(symbol, history, sentiment_score)
         signal = analysis.get("signal")
         price = analysis.get("price")
 
-        # 3. Execute with Safety Checks
+        # 4. Execute with Safety Checks
         current_position = self.get_current_position(symbol)
 
         if "BUY" in signal:
@@ -100,6 +113,27 @@ class TradingBot:
         except Exception as e:
             logger.error(f"Failed to calculate position: {e}")
             return 0
+
+    def _log_sentiment(self, symbol, news_items, score):
+        """Logs sentiment data to DB for training"""
+        try:
+            with get_db() as db:
+                for item in news_items:
+                    # Simple hash to avoid duplicates
+                    title_hash = str(hash(item['title']))
+                    exists = db.query(SentimentLog).filter(SentimentLog.title_hash == title_hash).first()
+
+                    if not exists:
+                        log = SentimentLog(
+                            symbol=symbol,
+                            news_source=item['source'],
+                            title_hash=title_hash,
+                            sentiment_score=score # We attribute the daily score to each article for simplicity now
+                        )
+                        db.add(log)
+                db.commit()
+        except Exception as e:
+            logger.error(f"Failed to log sentiment: {e}")
 
     def execute_trade(self, symbol: str, side: str, quantity: int, price: float, signal: str):
         """Executes and logs a trade"""

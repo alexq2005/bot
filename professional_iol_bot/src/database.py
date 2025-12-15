@@ -26,6 +26,19 @@ class LogEntry(Base):
     message = Column(String)
     timestamp = Column(DateTime, default=datetime.utcnow)
 
+class SentimentLog(Base):
+    """Stores sentiment analysis results for future AI training"""
+    __tablename__ = "sentiment_logs"
+
+    id = Column(Integer, primary_key=True)
+    symbol = Column(String)
+    news_source = Column(String)
+    title_hash = Column(String, index=True) # To prevent duplicates
+    sentiment_score = Column(Float)
+    timestamp = Column(DateTime, default=datetime.utcnow)
+
+    # Future: Store 24h price change here to label the data
+
 # Database Initialization
 engine = create_engine(settings.DB_URL, connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

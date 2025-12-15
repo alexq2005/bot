@@ -1,10 +1,10 @@
 import pytest
-from src.strategy import TechnicalStrategy
+from src.strategy import HybridStrategy
 from src.config import settings
 
 @pytest.fixture
 def strategy():
-    return TechnicalStrategy()
+    return HybridStrategy()
 
 def test_strategy_empty_data(strategy):
     result = strategy.analyze("TEST", [])

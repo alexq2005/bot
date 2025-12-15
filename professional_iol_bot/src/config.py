@@ -12,6 +12,12 @@ class Settings(BaseSettings):
     TIMEFRAME: str = "15m" # Used for logging/reference, though pandas-ta works on DFs
     MOCK_MODE: bool = Field(True, description="Force Mock Mode if True or credentials missing")
 
+    # API Keys for News
+    NEWSDATA_API_KEY: Optional[str] = Field(None, env='NEWSDATA_API_KEY')
+    FINNHUB_API_KEY: Optional[str] = Field(None, env='FINNHUB_API_KEY')
+    ALPHA_VANTAGE_API_KEY: Optional[str] = Field(None, env='ALPHA_VANTAGE_API_KEY')
+    NEWS_API_KEY: Optional[str] = Field(None, env='NEWS_API_KEY')
+
     # Strategy Parameters
     RSI_PERIOD: int = 14
     RSI_OVERBOUGHT: int = 70
