@@ -18,3 +18,4 @@ gymnasium
 stable-baselines3
 shimmy
 joblib
+sb3-contrib

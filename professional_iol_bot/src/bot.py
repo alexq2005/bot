@@ -11,6 +11,7 @@ from .news_service import NewsService
 from .ai_engine import AIEngine
 from .ml_engine import MLEngine
 from .risk_manager import RiskManager
+from .reasoning_engine import ReasoningEngine
 from .database import init_db, get_db, Trade, LogEntry, SentimentLog
 
 # Configure Logging
@@ -32,6 +33,7 @@ class TradingBot:
         # Advanced Modules
         self.ml_brain = MLEngine()
         self.risk_manager = RiskManager()
+        self.reasoning = ReasoningEngine()
         self.strategy = EvolutionaryStrategy(self.ml_brain)
 
         # Initialize Database
@@ -108,6 +110,17 @@ class TradingBot:
         analysis = self.strategy.analyze(symbol, history, sentiment_score, atr, current_position)
         signal = analysis.get("signal")
         price = analysis.get("price")
+
+        # 6. Reasoning Output
+        self.reasoning.explain_decision(
+            symbol,
+            analysis['indicators']['rsi'],
+            sentiment_score,
+            analysis['indicators'].get('rl_action', 0),
+            signal,
+            atr,
+            signal
+        )
 
         if "BUY" in signal:
             if current_position == 0:

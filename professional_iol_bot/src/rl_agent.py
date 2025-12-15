@@ -21,10 +21,10 @@ class TradingEnv(gym.Env):
         # Action Space: 0=Hold, 1=Buy, 2=Sell
         self.action_space = spaces.Discrete(3)
 
-        # Observation Space: [Price, RSI, MACD, Sentiment, Position_Status]
-        # Position_Status: 0=No Position, 1=Long
+        # Observation Space: [Price, RSI, MACD, Sentiment, Position_Status, ATR, Volume_Change]
+        # Expanded for improved reasoning capabilities
         self.observation_space = spaces.Box(
-            low=-np.inf, high=np.inf, shape=(5,), dtype=np.float32
+            low=-np.inf, high=np.inf, shape=(7,), dtype=np.float32
         )
 
         self.reset()
@@ -43,12 +43,21 @@ class TradingEnv(gym.Env):
         # Get data for current step
         frame = self.df.iloc[self.current_step]
 
+        # Calculate Volume Change (Simulated or Real)
+        vol = frame.get('volume', 1000)
+        prev_vol = 1000
+        if self.current_step > 0:
+            prev_vol = self.df.iloc[self.current_step - 1].get('volume', 1000)
+        vol_change = (vol - prev_vol) / (prev_vol + 1e-9)
+
         obs = np.array([
             frame['close'],
             frame.get('RSI_14', 50), # Default to neutral if missing
             frame.get('MACD_12_26_9', 0),
-            frame.get('sentiment', 0), # Added sentiment feature
-            1 if self.position > 0 else 0
+            frame.get('sentiment', 0),
+            1 if self.position > 0 else 0,
+            frame.get('ATR_14', 0),    # Added Volatility
+            vol_change                 # Added Volume Dynamics
         ], dtype=np.float32)
 
         return obs

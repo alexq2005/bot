@@ -39,9 +39,12 @@ class EvolutionaryStrategy:
         macd_line = current[f'MACD_{settings.MACD_FAST}_{settings.MACD_SLOW}_{settings.MACD_SIGNAL}']
 
         # 2. Deep RL Decision (The Confirmation)
-        # The RL Agent sees [Price, RSI, MACD, Sentiment, PositionStatus] and decides the best move.
+        # The RL Agent sees [Price, RSI, MACD, Sentiment, PositionStatus, ATR, VolChange]
         pos_status = 1 if current_position_size > 0 else 0
-        rl_action = self.ml.predict_action(rsi, macd_line, sentiment_score, pos_status)
+        # Calculate Vol Change (approx for live)
+        vol_change = 0.0 # Simplification for live loop unless we track prev volume in state
+
+        rl_action = self.ml.predict_action(rsi, macd_line, sentiment_score, pos_status, atr, vol_change)
 
         # 3. Hybrid Consensus Logic (Safety First)
         # Instead of blindly trusting RL (which might be young), we require a "Quorum".
