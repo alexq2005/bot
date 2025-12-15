@@ -17,3 +17,4 @@ transformers
 gymnasium
 stable-baselines3
 shimmy
+joblib

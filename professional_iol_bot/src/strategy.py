@@ -38,28 +38,40 @@ class EvolutionaryStrategy:
         rsi = current[f'RSI_{settings.RSI_PERIOD}']
         macd_line = current[f'MACD_{settings.MACD_FAST}_{settings.MACD_SLOW}_{settings.MACD_SIGNAL}']
 
-        # 2. Deep RL Decision (The General)
+        # 2. Deep RL Decision (The Confirmation)
         # The RL Agent sees [Price, RSI, MACD, Sentiment, PositionStatus] and decides the best move.
-        # Position Status: 0=None, 1=Long
         pos_status = 1 if current_position_size > 0 else 0
-
         rl_action = self.ml.predict_action(rsi, macd_line, sentiment_score, pos_status)
-        # Action Map: 0=Hold, 1=Buy, 2=Sell
+
+        # 3. Hybrid Consensus Logic (Safety First)
+        # Instead of blindly trusting RL (which might be young), we require a "Quorum".
+        # Tech Signal + RL Signal must align for High Conviction.
+
+        tech_signal = "HOLD"
+        if rsi < settings.RSI_OVERSOLD and macd_line > 0: tech_signal = "BUY"
+        elif rsi > settings.RSI_OVERBOUGHT: tech_signal = "SELL"
 
         signal = "HOLD"
         reasons = []
 
-        if rl_action == 1:
-            signal = "BUY"
-            reasons.append("RL Agent Decision: BUY")
-        elif rl_action == 2:
-            signal = "SELL"
-            reasons.append("RL Agent Decision: SELL")
-        else:
-            reasons.append("RL Agent Decision: HOLD")
+        # Action Map: 0=Hold, 1=Buy, 2=Sell
+        if rl_action == 1: # RL Says Buy
+            if tech_signal == "BUY" or sentiment_score > 0.5:
+                signal = "BUY"
+                reasons.append("Hybrid Consensus: BUY (RL + Tech/Sentiment)")
+            else:
+                reasons.append("RL suggests BUY (Vetoed by weak Tech)")
 
-        # Fallback/Confirmation logic (Optional):
-        # We could override the RL agent if risk is extreme (e.g. RSI > 90), but for SOTA, we trust the agent.
+        elif rl_action == 2: # RL Says Sell
+            signal = "SELL" # Safety: If RL says sell, we respect it to protect capital
+            reasons.append("RL Agent Decision: SELL (Safety Trigger)")
+
+        else: # RL Says Hold
+            if tech_signal == "BUY" and sentiment_score > 0.7:
+                signal = "BUY"
+                reasons.append("Strong Fundamentals override RL Neutrality")
+            else:
+                reasons.append("Market Hold")
 
         result = {
             "symbol": symbol,

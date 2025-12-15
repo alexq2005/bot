@@ -41,10 +41,11 @@ with col3:
     st.metric("ML Brain Accuracy", "68.4%", "+1.2%")
 
 with col4:
-    st.metric("Risk Regime", "Moderate", "ATR: 1.5%")
+    active_assets = 0 # Placeholder
+    st.metric("Active Assets", active_assets, "Portfolio Diversity")
 
 # --- TABS ---
-tab1, tab2, tab3 = st.tabs(["📈 Performance", "🧠 AI Brain", "📝 Trade Log"])
+tab1, tab2, tab3, tab4 = st.tabs(["📈 Performance", "💼 Portfolio", "🧠 AI Brain", "📝 Trade Log"])
 
 with tab1:
     st.subheader("Equity Curve & Trades")
@@ -63,6 +64,33 @@ with tab1:
         st.error(f"Error loading trades: {e}")
 
 with tab2:
+    st.subheader("Portfolio Allocation")
+    try:
+        # Calculate current holdings from trades (simplified)
+        trades_df = pd.read_sql("SELECT * FROM trades", engine)
+        if not trades_df.empty:
+            holdings = {}
+            for _, row in trades_df.iterrows():
+                sym = row['symbol']
+                qty = row['quantity'] * (1 if row['side']=='BUY' else -1)
+                holdings[sym] = holdings.get(sym, 0) + qty
+
+            # Filter non-zero
+            holdings = {k: v for k, v in holdings.items() if v > 0}
+
+            if holdings:
+                labels = list(holdings.keys())
+                values = list(holdings.values())
+                fig_pie = px.pie(values=values, names=labels, title="Current Allocation")
+                st.plotly_chart(fig_pie, use_container_width=True)
+            else:
+                st.info("Portfolio is currently 100% Cash.")
+        else:
+            st.info("No active positions.")
+    except Exception as e:
+        st.error(f"Portfolio Error: {e}")
+
+with tab3:
     st.subheader("Inside the Machine Learning Brain")
     col_a, col_b = st.columns(2)
 
@@ -88,7 +116,7 @@ with tab2:
         except:
             pass
 
-with tab3:
+with tab4:
     st.subheader("Recent Activity")
     try:
         logs_df = pd.read_sql("SELECT * FROM logs ORDER BY timestamp DESC LIMIT 50", engine)

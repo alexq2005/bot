@@ -8,7 +8,8 @@ class Settings(BaseSettings):
     IOL_PASSWORD: Optional[str] = Field(None, description="IOL Password")
 
     # Trading Configuration
-    TRADING_SYMBOL: str = Field("GGAL", description="Symbol to trade")
+    # Supports multiple symbols separated by comma, e.g., "GGAL,YPFD,PAMP"
+    TRADING_SYMBOLS: List[str] = Field(["GGAL", "YPFD", "PAMP"], description="List of symbols to trade")
     TIMEFRAME: str = "15m" # Used for logging/reference, though pandas-ta works on DFs
     MOCK_MODE: bool = Field(True, description="Force Mock Mode if True or credentials missing")
 

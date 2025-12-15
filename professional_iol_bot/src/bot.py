@@ -72,7 +72,16 @@ class TradingBot:
 
     def process_cycle(self):
         """Single execution cycle"""
-        symbol = settings.TRADING_SYMBOL
+        symbols = settings.TRADING_SYMBOLS
+        logger.info(f"🔄 Starting Portfolio Cycle for {len(symbols)} assets: {symbols}")
+
+        for symbol in symbols:
+            try:
+                self._process_symbol(symbol)
+            except Exception as e:
+                logger.error(f"Error processing {symbol}: {e}")
+
+    def _process_symbol(self, symbol: str):
         logger.info(f"🔍 Analyzing {symbol}...")
 
         # 1. Get Market Data (Technical)
@@ -80,7 +89,8 @@ class TradingBot:
 
         # 2. Get AI Sentiment (Fundamental)
         logger.info(f"📰 Gathering Intelligence for {symbol}...")
-        # Search for symbol + "Economy" to get broader context
+        # Search for symbol + "Argentina Economy" to get broader context
+        # Optimized query to reduce API spam if necessary
         news = self.news_service.get_news(query=f"{symbol} Argentina Economy")
         sentiment_score = self.ai.analyze_sentiment(news)
 
@@ -135,11 +145,12 @@ class TradingBot:
 
     def _log_sentiment(self, symbol, news_items, score):
         """Logs sentiment data to DB for training"""
+        import hashlib
         try:
             with get_db() as db:
                 for item in news_items:
-                    # Simple hash to avoid duplicates
-                    title_hash = str(hash(item['title']))
+                    # Stable hash to avoid duplicates across restarts
+                    title_hash = hashlib.sha256(item['title'].encode('utf-8')).hexdigest()
                     exists = db.query(SentimentLog).filter(SentimentLog.title_hash == title_hash).first()
 
                     if not exists:

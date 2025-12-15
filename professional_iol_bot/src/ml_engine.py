@@ -56,17 +56,27 @@ class MLEngine:
     def train_model(self):
         """
         Evolutionary Step: Retrains the RL Agent using simulated environment.
+        Uses deterministic patterns (Sine Wave) so the agent can actually learn logic.
         """
-        logger.info("🎓 Starting Deep RL Training...")
+        logger.info("🎓 Starting Deep RL Training (Simulated Pattern)...")
 
-        # 1. Create Simulation Data
-        # In a real scenario, this comes from DB history or fetched historical data
-        dates = pd.date_range(start='2023-01-01', periods=200)
+        # 1. Create Deterministic Simulation Data (Sine Wave + Trend)
+        # This allows the agent to learn "Buy Low, Sell High" logic reliably
+        length = 1000
+        x = np.linspace(0, 50, length)
+
+        # Price = Upward Trend + Sine Wave + Noise
+        price = 100 + x + 10 * np.sin(x) + np.random.normal(0, 2, length)
+
+        # Generate Indicators based on this price (Semi-Realistic)
+        rsi = 50 + 40 * np.sin(x) # RSI follows price cycles
+        macd = np.gradient(price) # Momentum proxy
+
         data = {
-            'close': np.random.uniform(100, 200, 200),
-            'RSI_14': np.random.uniform(20, 80, 200),
-            'MACD_12_26_9': np.random.uniform(-5, 5, 200),
-            'sentiment': np.random.uniform(-1, 1, 200)
+            'close': price,
+            'RSI_14': rsi,
+            'MACD_12_26_9': macd,
+            'sentiment': np.sin(x/2) # Sentiment cycles slower
         }
         df = pd.DataFrame(data)
 
