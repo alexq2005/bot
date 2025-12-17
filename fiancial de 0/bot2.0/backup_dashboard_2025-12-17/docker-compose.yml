@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  # Trading Bot Service
+  bot:
+    build: .
+    container_name: iol_trading_bot
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./models:/app/models
+    restart: unless-stopped
+    command: python main.py
+    networks:
+      - trading_network
+
+  # Dashboard Service
+  dashboard:
+    build: .
+    container_name: iol_dashboard
+    env_file:
+      - .env
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./models:/app/models
+    restart: unless-stopped
+    command: streamlit run src/dashboard/app.py --server.port=8501 --server.address=0.0.0.0
+    networks:
+      - trading_network
+    depends_on:
+      - bot
+
+networks:
+  trading_network:
+    driver: bridge
+
+volumes:
+  data:
+  logs:
+  models:
