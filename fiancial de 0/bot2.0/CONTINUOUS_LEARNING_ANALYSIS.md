@@ -158,9 +158,9 @@ Para que el bot se reentrenara completamente solo, necesitaría:
 | **Nivel 1: Ajuste de Pesos** | ✅ ACTIVO | Ensemble ajusta pesos automáticamente |
 | **Nivel 2: Detección de Drift** | ✅ ACTIVO | Detecta cuando modelos pierden precisión |
 | **Nivel 3: Recomendaciones** | ✅ ACTIVO | Sugiere cuándo reentrenar |
-| **Nivel 4: Reentrenamiento Manual** | ⚠️ DISPONIBLE | Requiere ejecutar script |
-| **Nivel 5: Reentrenamiento Automático** | ❌ NO IMPLEMENTADO | Falta scheduler |
-| **Nivel 6: A/B Testing de Modelos** | ❌ NO IMPLEMENTADO | Falta comparación |
+| **Nivel 4: Reentrenamiento Manual** | ✅ IMPLEMENTADO | Script fácil `easy_retrain.py` |
+| **Nivel 5: Reentrenamiento Automático** | ✅ IMPLEMENTADO | Scheduler automático disponible |
+| **Nivel 6: A/B Testing de Modelos** | ✅ IMPLEMENTADO | Comparación automática de modelos |
 
 ---
 
@@ -186,44 +186,118 @@ El bot es como un **estudiante que toma apuntes de todas sus clases** y **ajusta
 
 ---
 
-## 🔧 Cómo Activar Aprendizaje Completo
+## 🔧 Cómo Usar las Nuevas Funcionalidades
 
-### Opción 1: Reentrenamiento Manual Periódico
+### Nivel 4: Reentrenamiento Manual Fácil ✅
+
+**Script interactivo mejorado:**
 
 ```bash
-# Cada semana/mes, ejecutar:
+# Modo interactivo (recomendado)
 cd "fiancial de 0/bot2.0"
-python scripts/train_model.py --timesteps 100000
+python scripts/easy_retrain.py
+
+# Modo rápido (10k timesteps)
+python scripts/easy_retrain.py --quick
+
+# Entrenamiento completo con A/B testing
+python scripts/easy_retrain.py --timesteps 100000 --compare
+
+# Personalizado
+python scripts/easy_retrain.py --symbol YPFD --days 180 --timesteps 50000 --compare
 ```
 
-### Opción 2: Implementar Scheduler (Recomendado)
+**Características:**
+- ✅ Interfaz amigable con colores
+- ✅ Modo interactivo con preguntas
+- ✅ Comparación automática con modelo actual
+- ✅ Backup automático de modelos
+- ✅ Métricas detalladas
 
-Agregar al bot:
+### Nivel 5: Reentrenamiento Automático ✅
+
+**Integrar en el bot:**
 
 ```python
+from src.utils.auto_retrain_scheduler import AutoRetrainScheduler
+
 # En trading_bot.py
 class TradingBot:
     def __init__(self):
         # ... código existente ...
-        self.last_retrain = datetime.now()
-        self.retrain_frequency_days = 7
-    
-    def should_retrain_models(self):
-        days_since_retrain = (datetime.now() - self.last_retrain).days
-        return (
-            days_since_retrain >= self.retrain_frequency_days or
-            self.ensemble.should_retrain()
+        
+        # Crear scheduler
+        self.auto_retrain = AutoRetrainScheduler(
+            check_interval_hours=24,  # Chequear cada 24h
+            auto_mode=True,  # Reentrenar automáticamente
+            min_trades_for_retrain=100
+        )
+        
+        # Definir función para obtener datos de entrenamiento
+        def get_training_data():
+            # Lógica para obtener datos recientes
+            return self.prepare_training_data()
+        
+        # Iniciar scheduler
+        self.auto_retrain.start_scheduler(
+            self.rl_agent,
+            self.ensemble,
+            get_training_data
         )
     
-    def run_trading_loop(self):
-        while self.running:
-            # ... lógica de trading ...
-            
-            # Check reentrenamiento
-            if self.should_retrain_models():
-                self.retrain_rl_agent()
-                self.last_retrain = datetime.now()
+    def stop(self):
+        # Detener scheduler al detener el bot
+        self.auto_retrain.stop_scheduler()
 ```
+
+**Características:**
+- ✅ Monitorea performance automáticamente
+- ✅ Detecta degradación de rendimiento
+- ✅ Reentrena cuando es necesario
+- ✅ Backup automático de modelos
+- ✅ Histórico de reentrenamientos
+
+### Nivel 6: A/B Testing Automático ✅
+
+**Uso del comparador de modelos:**
+
+```python
+from src.utils.model_ab_tester import ModelABTester
+
+# Crear tester
+tester = ModelABTester(
+    validation_episodes=10,
+    min_improvement=0.02  # 2% mínimo de mejora
+)
+
+# Comparar modelos
+result = tester.auto_replace_if_better(
+    current_model_path="./models/ppo_trading_agent",
+    new_model_path="./models/temp_new_model",
+    validation_data=validation_df,
+    backup=True
+)
+
+# Ver resultado
+if result['replaced']:
+    print("✅ Nuevo modelo es mejor y fue reemplazado")
+else:
+    print("❌ Modelo actual es mejor, sin cambios")
+
+# Ver histórico
+summary = tester.get_test_history_summary()
+print(f"Tests realizados: {summary['total_tests']}")
+print(f"Modelos reemplazados: {summary['models_replaced']}")
+print(f"Mejora promedio: {summary['average_improvement']:.2f}%")
+```
+
+**Características:**
+- ✅ Evaluación estadística rigurosa
+- ✅ Test de significancia (z-score)
+- ✅ Múltiples métricas (retorno, Sharpe, consistencia)
+- ✅ Reemplazo automático si es mejor
+- ✅ Histórico de comparaciones
+- ✅ Recomendaciones basadas en histórico
 
 ---
 
@@ -267,5 +341,46 @@ Esto ocurre automáticamente sin intervención.
 
 ---
 
+---
+
+## 🆕 Actualización - Niveles 4, 5 y 6 Implementados
+
+### ✅ Nivel 4: Script de Reentrenamiento Mejorado
+- **Archivo:** `scripts/easy_retrain.py`
+- **Modo interactivo** con preguntas guiadas
+- **A/B testing integrado** en el script
+- **Backup automático** de modelos
+- **Métricas visuales** con colores
+
+### ✅ Nivel 5: Scheduler Automático
+- **Archivo:** `src/utils/auto_retrain_scheduler.py`
+- **Monitoreo continuo** de performance
+- **Reentrenamiento automático** cuando detecta degradación
+- **Configurable:** intervalo, thresholds, modo auto/manual
+- **Thread separado** no bloquea el bot
+
+### ✅ Nivel 6: A/B Testing de Modelos
+- **Archivo:** `src/utils/model_ab_tester.py`
+- **Comparación estadística** entre modelos (z-score, significancia)
+- **Múltiples métricas:** retorno, Sharpe ratio, consistencia
+- **Reemplazo automático** si nuevo modelo es mejor
+- **Histórico completo** de comparaciones
+
+### 🎉 Estado Final del Sistema
+
+El bot ahora cuenta con **aprendizaje totalmente autónomo**:
+
+1. ✅ **Adapta pesos** automáticamente (Ensemble)
+2. ✅ **Detecta drift** en modelos
+3. ✅ **Recomienda reentrenamiento**
+4. ✅ **Reentrena fácilmente** (script interactivo)
+5. ✅ **Reentrena automáticamente** (scheduler)
+6. ✅ **Valida modelos** (A/B testing)
+
+**Sistema completo de aprendizaje continuo operacional** 🚀
+
+---
+
 **Fecha de análisis:** 2025-12-18
+**Última actualización:** 2025-12-18 (Niveles 4-6 implementados)
 **Versión del bot:** 2.0
