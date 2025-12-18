@@ -108,19 +108,19 @@ class MockIOLClient:
         # Normalizar side
         side = side.lower()
         if side in ["buy", "compra"]:
-             if total > self.cash:
-                 return {"success": False, "message": f"Fondos insuficientes ({self.cash} vs {total})"}
-             
-             self.cash -= total
-             old_q = self.positions.get(symbol, 0)
-             self.positions[symbol] = old_q + quantity
-             
-             return {"success": True, "price": price, "message": "Compra exitosa"}
-             
+            if total > self.cash:
+                return {"success": False, "message": f"Fondos insuficientes ({self.cash} vs {total})"}
+            
+            self.cash -= total
+            old_q = self.positions.get(symbol, 0)
+            self.positions[symbol] = old_q + quantity
+            
+            return {"success": True, "price": price, "message": "Compra exitosa"}
+            
         elif side in ["sell", "venta", "vender"]:
             curr_q = self.positions.get(symbol, 0)
             if quantity > curr_q:
-                 return {"success": False, "message": f"Posición insuficiente ({curr_q})"}
+                return {"success": False, "message": f"Posición insuficiente ({curr_q})"}
             
             self.cash += total
             self.positions[symbol] = curr_q - quantity
@@ -203,10 +203,11 @@ class MockIOLClient:
         """Get portfolio performance metrics"""
         self._ensure_authenticated()
         
-        # Calculate total invested value
+        # Calculate total invested value (only for non-zero positions)
         invested = sum(
-            self.positions.get(s, 0) * self.current_prices.get(s, 0) 
-            for s in self.positions
+            qty * self.current_prices.get(symbol, 0) 
+            for symbol, qty in self.positions.items()
+            if qty > 0
         )
         
         current_value = self.cash + invested
