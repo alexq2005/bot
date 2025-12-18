@@ -20,6 +20,7 @@ class MockIOLClient:
         
         # Estado simulado
         self.cash = initial_capital
+        self.initial_capital = initial_capital
         self.positions: Dict[str, int] = {}
         self.avg_prices: Dict[str, float] = {}
         
@@ -140,3 +141,83 @@ class MockIOLClient:
                     "gananciaPerdida": 0
                 })
         return {"activos": assets}
+    
+    def get_account_balance(self) -> float:
+        """Returns the current cash balance"""
+        return self.cash
+    
+    def get_position(self, symbol: str) -> int:
+        """Returns the current position quantity for a symbol"""
+        return self.positions.get(symbol, 0)
+    
+    def buy(self, symbol: str, quantity: int) -> bool:
+        """Execute a buy order"""
+        result = self.place_market_order(symbol, quantity, "buy")
+        return result.get("success", False)
+    
+    def sell(self, symbol: str, quantity: int) -> bool:
+        """Execute a sell order"""
+        result = self.place_market_order(symbol, quantity, "sell")
+        return result.get("success", False)
+    
+    def get_historical_data(self, symbol: str, from_date, to_date) -> pd.DataFrame:
+        """Generate synthetic historical data for backtesting"""
+        self._ensure_authenticated()
+        
+        days = (to_date - from_date).days
+        if days <= 0:
+            days = 100
+        
+        dates = pd.date_range(start=from_date, periods=days, freq='D')
+        
+        # Get or initialize base price
+        if symbol not in self.current_prices:
+            self.current_prices[symbol] = random.uniform(500, 5000)
+        
+        base_price = self.current_prices[symbol]
+        
+        # Generate realistic price series using random walk
+        prices = [base_price]
+        for _ in range(days - 1):
+            change = np.random.normal(0.0005, 0.02)
+            new_price = prices[-1] * (1 + change)
+            new_price = max(new_price, 1.0)  # Ensure positive price
+            prices.append(new_price)
+        
+        # Generate OHLCV data
+        df = pd.DataFrame({
+            'date': dates,
+            'open': [p * (1 + np.random.uniform(-0.005, 0.005)) for p in prices],
+            'high': [p * (1 + np.random.uniform(0.005, 0.02)) for p in prices],
+            'low': [p * (1 - np.random.uniform(0.005, 0.02)) for p in prices],
+            'close': prices,
+            'volume': [random.randint(100000, 1000000) for _ in prices]
+        })
+        
+        # Set date as index
+        df.set_index('date', inplace=True)
+        
+        return df
+    
+    def get_performance(self) -> dict:
+        """Get portfolio performance metrics"""
+        self._ensure_authenticated()
+        
+        # Calculate total invested value
+        invested = sum(
+            self.positions.get(s, 0) * self.current_prices.get(s, 0) 
+            for s in self.positions
+        )
+        
+        current_value = self.cash + invested
+        initial_capital = getattr(self, 'initial_capital', 1000000)
+        
+        return {
+            'initial_capital': initial_capital,
+            'current_value': current_value,
+            'total_return': current_value - initial_capital,
+            'total_return_pct': ((current_value - initial_capital) / initial_capital) * 100,
+            'cash': self.cash,
+            'invested': invested,
+            'positions': len([s for s, q in self.positions.items() if q > 0])
+        }
