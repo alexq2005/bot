@@ -1,7 +1,6 @@
 """
 Servicio de Análisis Técnico
-
-Implementa indicadores técnicos reales usando pandas-ta:
+Implementa indicadores técnicos reales usando Pandas nativo (Sin dependencias pesadas):
 - RSI (Relative Strength Index)
 - MACD (Moving Average Convergence Divergence)
 - Bollinger Bands
@@ -9,89 +8,87 @@ Implementa indicadores técnicos reales usando pandas-ta:
 """
 
 import logging
-from typing import Dict, Optional, Any
+from typing import Dict, Any
 from datetime import datetime
 import pandas as pd
-import pandas_ta as ta
+import numpy as np
+
+# Intentar importar pandas_ta opcionalmente (no es requerido, usamos implementaciones nativas)
+try:
+    import pandas_ta as ta
+    PANDAS_TA_AVAILABLE = True
+except ImportError:
+    PANDAS_TA_AVAILABLE = False
+    # No es crítico, usamos implementaciones nativas de pandas
 
 logger = logging.getLogger(__name__)
 
-
 class TechnicalAnalysisService:
-    """Servicio de análisis técnico completo usando pandas-ta"""
+    """Servicio de análisis técnico completo usando Pandas nativo"""
     
     def __init__(self):
-        """Inicializa el servicio de análisis técnico"""
-        logger.info("📊 Inicializando Servicio de Análisis Técnico")
+        logger.info("📊 Inicializando Servicio de Análisis Técnico (Native Pandas)")
     
     def analyze(self, symbol: str, data: pd.DataFrame) -> Dict[str, Any]:
-        """
-        Realiza análisis técnico completo de un símbolo.
-        
-        Args:
-            symbol: Símbolo a analizar
-            data: DataFrame con datos históricos (debe tener columnas: open, high, low, close, volume)
-                  Las columnas pueden estar en español (apertura, cierre, etc) y se renombrarán.
-            
-        Returns:
-            Diccionario con resultados del análisis
-        """
         if data is None or data.empty:
             logger.warning(f"No hay datos para analizar en {symbol}")
             return self._empty_result(symbol)
 
-        # Normalizar columnas para pandas-ta
+        # Normalizar columnas
         df = self._normalize_columns(data)
         
-        if len(df) < 20: # Mínimo necesario para algunos indicadores
+        if len(df) < 26: # Mínimo para MACD
              logger.warning(f"Datos insuficientes para {symbol} ({len(df)} filas)")
              return self._empty_result(symbol)
 
         try:
+            # Calcular Indicadores Nativos
+            close = df['close']
+
             # 1. RSI (14)
-            df.ta.rsi(length=14, append=True)
-            current_rsi = df['RSI_14'].iloc[-1]
+            rsi_series = self._calculate_rsi(close, 14)
+            current_rsi = rsi_series.iloc[-1]
 
             # 2. MACD (12, 26, 9)
-            df.ta.macd(fast=12, slow=26, signal=9, append=True)
-            macd = df['MACD_12_26_9'].iloc[-1]
-            macd_signal = df['MACDs_12_26_9'].iloc[-1]
-            macd_hist = df['MACDh_12_26_9'].iloc[-1]
+            macd_line, signal_line, macd_hist = self._calculate_macd(close, 12, 26, 9)
+            macd = macd_line.iloc[-1]
+            macd_signal = signal_line.iloc[-1]
+            hist_val = macd_hist.iloc[-1]
 
             # 3. Bollinger Bands (20, 2)
-            df.ta.bbands(length=20, std=2, append=True)
-            bb_upper = df['BBU_20_2.0'].iloc[-1]
-            bb_middle = df['BBM_20_2.0'].iloc[-1]
-            bb_lower = df['BBL_20_2.0'].iloc[-1]
+            upper, middle, lower = self._calculate_bbands(close, 20, 2)
+            bb_upper = upper.iloc[-1]
+            bb_middle = middle.iloc[-1]
+            bb_lower = lower.iloc[-1]
 
             # 4. EMAs
-            df.ta.ema(length=50, append=True)
-            df.ta.ema(length=200, append=True)
-            ema_50 = df['EMA_50'].iloc[-1]
-            ema_200 = df['EMA_200'].iloc[-1] if 'EMA_200' in df.columns else None
+            ema_50_series = self._calculate_ema(close, 50)
+            ema_200_series = self._calculate_ema(close, 200)
+            ema_50 = ema_50_series.iloc[-1] if not ema_50_series.empty else None
+            ema_200 = ema_200_series.iloc[-1] if not ema_200_series.empty else None
 
-            # Generar señal básica
-            signal = self._generate_signal(current_rsi, macd, macd_signal, df['close'].iloc[-1], bb_lower, bb_upper)
+            # Generar señal
+            signal = self._generate_signal(current_rsi, macd, macd_signal, close.iloc[-1], bb_lower, bb_upper)
 
             logger.info(f"Análisis {symbol}: RSI={current_rsi:.2f}, Signal={signal}")
 
             return {
                 "symbol": symbol,
-                "price": df['close'].iloc[-1],
-                "rsi": round(current_rsi, 2),
+                "price": close.iloc[-1],
+                "rsi": round(float(current_rsi), 2),
                 "macd": {
-                    "value": round(macd, 4),
-                    "signal": round(macd_signal, 4),
-                    "hist": round(macd_hist, 4)
+                    "value": round(float(macd), 4),
+                    "signal": round(float(macd_signal), 4),
+                    "hist": round(float(hist_val), 4)
                 },
                 "bollinger_bands": {
-                    "upper": round(bb_upper, 2),
-                    "middle": round(bb_middle, 2),
-                    "lower": round(bb_lower, 2)
+                    "upper": round(float(bb_upper), 2),
+                    "middle": round(float(bb_middle), 2),
+                    "lower": round(float(bb_lower), 2)
                 },
                 "trends": {
-                    "ema_50": round(ema_50, 2) if ema_50 else None,
-                    "ema_200": round(ema_200, 2) if ema_200 else None
+                    "ema_50": round(float(ema_50), 2) if ema_50 is not None else None,
+                    "ema_200": round(float(ema_200), 2) if ema_200 is not None else None
                 },
                 "signal": signal,
                 "timestamp": datetime.now().isoformat()
@@ -101,44 +98,69 @@ class TechnicalAnalysisService:
             logger.error(f"Error calculando indicadores para {symbol}: {e}")
             return self._empty_result(symbol)
 
+    def _calculate_rsi(self, series: pd.Series, period: int = 14) -> pd.Series:
+        delta = series.diff()
+        gain = (delta.where(delta > 0, 0)).rolling(window=period).mean()
+        loss = (-delta.where(delta < 0, 0)).rolling(window=period).mean()
+        rs = gain / loss
+        return 100 - (100 / (1 + rs))
+
+    def _calculate_ema(self, series: pd.Series, span: int) -> pd.Series:
+        return series.ewm(span=span, adjust=False).mean()
+
+    def _calculate_macd(self, series: pd.Series, fast: int = 12, slow: int = 26, signal: int = 9):
+        exp1 = self._calculate_ema(series, fast)
+        exp2 = self._calculate_ema(series, slow)
+        macd = exp1 - exp2
+        sig = self._calculate_ema(macd, signal)
+        hist = macd - sig
+        return macd, sig, hist
+
+    def _calculate_bbands(self, series: pd.Series, length: int = 20, std: int = 2):
+        ma = series.rolling(window=length).mean()
+        sd = series.rolling(window=length).std()
+        upper = ma + (sd * std)
+        lower = ma - (sd * std)
+        return upper, ma, lower
+
     def _normalize_columns(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Normaliza nombres de columnas a formato inglés estándar"""
-        # Mapeo de columnas IOL/Español a Inglés
+        # Convertir a minúsculas
+        df.columns = [c.lower() for c in df.columns]
+        
         mapping = {
             'cierre': 'close',
             'apertura': 'open',
             'maximo': 'high',
             'minimo': 'low',
             'volumen': 'volume',
-            'ultimo': 'close', # A veces viene como ultimo
-            'last_price': 'close'
+            'ultimo': 'close',
+            'ultimoprecio': 'close',
+            'last_price': 'close',
+            'fecha': 'date',
+            'fechahora': 'date'
         }
-
         new_df = df.rename(columns=mapping)
-
-        # Asegurarse que sean floats
+        
+        # Log columns for debug if 'close' missing
+        if 'close' not in new_df.columns:
+            logger.warning(f"Columnas disponibles: {new_df.columns.tolist()}")
+            
         for col in ['open', 'high', 'low', 'close', 'volume']:
             if col in new_df.columns:
                 new_df[col] = pd.to_numeric(new_df[col], errors='coerce')
-
         return new_df
 
     def _generate_signal(self, rsi, macd, macd_signal, price, bb_lower, bb_upper) -> str:
-        """Lógica simple para generar señales de compra/venta"""
         score = 0
-
-        # RSI
-        if rsi < 30: score += 1 # Sobrevendido -> Compra
-        elif rsi > 70: score -= 1 # Sobrecomprado -> Venta
-
-        # MACD
-        if macd > macd_signal: score += 1 # Cruce alcista
-        elif macd < macd_signal: score -= 1 # Cruce bajista
-
-        # BB
-        if price <= bb_lower: score += 1 # Precio bajo banda inferior -> Rebote probable
-        elif price >= bb_upper: score -= 1 # Precio sobre banda superior -> Corrección probable
-
+        if rsi < 30: score += 1
+        elif rsi > 70: score -= 1
+        
+        if macd > macd_signal: score += 1
+        elif macd < macd_signal: score -= 1
+        
+        if price <= bb_lower: score += 1
+        elif price >= bb_upper: score -= 1
+        
         if score >= 2: return "STRONG_BUY"
         if score == 1: return "BUY"
         if score <= -2: return "STRONG_SELL"
@@ -153,6 +175,3 @@ class TechnicalAnalysisService:
             "bollinger_bands": None,
             "signal": "HOLD"
         }
-
-# Exportar servicio
-__all__ = ['TechnicalAnalysisService']

@@ -1,29 +1,12 @@
-# Archivos de Python
+# Python
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
 .Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-
-# Entornos virtuales
+env/
 venv/
 ENV/
-env/
 .venv
 
 # IDEs
@@ -33,33 +16,53 @@ env/
 *.swo
 *~
 
-# Datos sensibles
-.env
-*.db
-*.sqlite
-*.sqlite3
-
-# Datos del bot
-data/
-logs/
-*.log
-
-# Modelos entrenados
-*.h5
-*.pkl
-*.joblib
-src/models/*.h5
-src/models/*.pkl
-
-# Jupyter Notebooks
-.ipynb_checkpoints
-*.ipynb
-
-# Sistema operativo
+# OS
 .DS_Store
 Thumbs.db
+desktop.ini
 
-# Temporales
+# Logs
+*.log
+logs/
+
+# Database
+*.db-journal
+*.sqlite3-journal
+
+# Credenciales
+.env
+*.pem
+*.key
+
+# Modelos temporales (excepto el final)
+models/temp_*
+models/backup_*
+
+# Backups (ya están en carpeta backups/)
+backups/
+
+# Caché
+.cache/
+*.cache
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# Pytest
+.pytest_cache/
+htmlcov/
+.coverage
+
+# Eggs
+*.egg-info/
+dist/
+build/
+
+# Documentación generada
+docs/_build/
+
+# Temporal
 tmp/
 temp/
 *.tmp
