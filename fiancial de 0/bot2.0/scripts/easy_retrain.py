@@ -23,6 +23,8 @@ from src.ai.rl_agent import RLAgent
 from src.api.mock_iol_client import MockIOLClient
 from src.analysis.technical_indicators import TechnicalIndicators
 from src.utils.model_ab_tester import ModelABTester
+from src.utils.model_version_manager import ModelVersionManager
+from src.utils.training_notifier import TrainingNotifier, NotificationLevel
 from src.utils.logger import log
 
 
@@ -89,7 +91,7 @@ def get_training_data(symbol, days, client, ti):
     return df
 
 
-def train_new_model(df, timesteps, agent):
+def train_new_model(df, timesteps, agent, notifier, symbol):
     """Entrenar nuevo modelo"""
     print_section("2️⃣  ENTRENANDO NUEVO MODELO")
     
@@ -98,11 +100,19 @@ def train_new_model(df, timesteps, agent):
     
     print("\n   " + Fore.YELLOW + "Entrenando... (esto puede tomar varios minutos)" + Style.RESET_ALL)
     
+    # Notificar inicio
+    notifier.notify_training_start(timesteps, symbol)
+    
+    import time
+    start_time = time.time()
+    
     agent.train(df, total_timesteps=timesteps)
     
-    print_success("Entrenamiento completado")
+    duration = time.time() - start_time
     
-    return agent
+    print_success(f"Entrenamiento completado en {duration:.1f}s")
+    
+    return agent, duration
 
 
 def evaluate_model(df, agent):
@@ -192,6 +202,10 @@ def interactive_mode():
 
 
 def main():
+    # Inicializar sistemas mejorados
+    notifier = TrainingNotifier()
+    version_manager = ModelVersionManager()
+    
     parser = argparse.ArgumentParser(
         description='Reentrenamiento fácil del agente PPO',
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -255,14 +269,22 @@ Ejemplos de uso:
     agent = RLAgent(model_path=temp_model_path)
     
     # 3. Entrenar
-    train_new_model(df, timesteps, agent)
+    agent, duration = train_new_model(df, timesteps, agent, notifier, symbol)
     
     # 4. Evaluar
     metrics = evaluate_model(df, agent)
     
+    # Notificar fin de entrenamiento
+    notifier.notify_training_complete(duration, metrics)
+    
     # 5. Comparar con modelo actual si se solicita
     if compare:
         result = compare_with_current(temp_model_path, df)
+        
+        # Notificar resultado de A/B test
+        if result.get('success'):
+            improvement = result.get('comparison', {}).get('comparison', {}).get('improvement_return_pct', 0)
+            notifier.notify_ab_test_result(result.get('replaced', False), improvement)
         
         if not result.get('replaced', False) and result.get('success', False):
             # Preguntar si guardar de todas formas
@@ -271,18 +293,39 @@ Ejemplos de uso:
             
             if save_anyway == 's':
                 import shutil
-                shutil.copy(
-                    f"{temp_model_path}.zip",
-                    f"./models/ppo_trading_agent_manual_{int(datetime.now().timestamp())}.zip"
+                version_id = version_manager.save_version(
+                    temp_model_path,
+                    metrics,
+                    tag="manual_backup",
+                    notes=f"Entrenado manualmente con {timesteps} timesteps"
                 )
-                print_success("Modelo guardado como versión alternativa")
+                notifier.notify_version_saved(version_id, "manual_backup")
+                print_success(f"Modelo guardado como versión {version_id}")
+        elif result.get('replaced', False):
+            # Guardar versión si fue reemplazado
+            version_id = version_manager.save_version(
+                "./models/ppo_trading_agent",
+                metrics,
+                tag="production",
+                notes=f"Modelo mejorado tras A/B test (+{improvement:.1f}%)"
+            )
+            notifier.notify_version_saved(version_id, "production")
     else:
         # Si no se compara, guardar como modelo principal
         print_section("4️⃣  GUARDANDO MODELO")
         import shutil
         os.makedirs("./models", exist_ok=True)
         shutil.copy(f"{temp_model_path}.zip", "./models/ppo_trading_agent.zip")
-        print_success("Modelo guardado como modelo principal")
+        
+        # Guardar versión
+        version_id = version_manager.save_version(
+            "./models/ppo_trading_agent",
+            metrics,
+            tag="manual",
+            notes=f"Entrenado manualmente con {timesteps} timesteps"
+        )
+        notifier.notify_version_saved(version_id, "manual")
+        print_success(f"Modelo guardado como versión {version_id}")
     
     # Resumen final
     print("\n" + "="*70)
