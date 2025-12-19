@@ -574,6 +574,8 @@ def render_manual_trading_tab(client, settings):
         if new_cache_key in st.session_state:
             del st.session_state[new_cache_key]
         st.session_state.previous_symbol = selected_symbol
+        # Forzar actualización de la página para obtener nuevo precio
+        st.rerun()
     
     # Mostrar símbolo seleccionado
     st.info(f"**Activo seleccionado:** `{selected_symbol}` | **Categoría:** `{selected_category}`")
