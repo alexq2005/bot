@@ -568,8 +568,10 @@ def render_manual_trading_tab(client, settings):
     refresh_col1, refresh_col2, refresh_col3 = st.columns([1, 2, 1])
     with refresh_col2:
         if st.button("🔄 Actualizar Precio", use_container_width=True, key="refresh_price"):
-            if 'last_price' in st.session_state:
-                del st.session_state.last_price
+            # Limpiar caché de precio para el símbolo seleccionado
+            cache_key = f"price_{selected_symbol}"
+            if cache_key in st.session_state:
+                del st.session_state[cache_key]
             st.rerun()
     
     # Obtener precio
