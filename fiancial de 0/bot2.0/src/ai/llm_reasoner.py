@@ -1,6 +1,6 @@
 """
 LLM Reasoner
-Razonamiento avanzado usando Large Language Models (GPT-4/Claude)
+Razonamiento avanzado usando Large Language Models (GPT-4/Claude/DeepSeek/Gemini)
 """
 
 import os
@@ -12,7 +12,7 @@ class LLMReasoner:
     """
     Razonador basado en LLM
     
-    Usa GPT-4 o Claude para:
+    Usa GPT-4, Claude, DeepSeek o Gemini para:
     - Razonamiento en lenguaje natural
     - Explicaciones detalladas
     - Detección de contradicciones
@@ -29,11 +29,20 @@ class LLMReasoner:
         Inicializa el reasoner
         
         Args:
-            api_key: API key de OpenAI o Anthropic
-            model: Modelo a usar (gpt-4, gpt-3.5-turbo, claude-3)
-            provider: Proveedor (openai, anthropic)
+            api_key: API key de OpenAI, Anthropic, DeepSeek o Gemini
+            model: Modelo a usar (gpt-4, gpt-3.5-turbo, claude-3, deepseek-chat, gemini-pro)
+            provider: Proveedor (openai, anthropic, deepseek, gemini)
         """
-        self.api_key = api_key or os.getenv('OPENAI_API_KEY', '')
+        # Detectar provider y API key adecuados
+        if provider == "deepseek":
+            self.api_key = api_key or os.getenv('DEEPSEEK_API_KEY', '')
+        elif provider == "anthropic":
+            self.api_key = api_key or os.getenv('ANTHROPIC_API_KEY', '')
+        elif provider == "gemini":
+            self.api_key = api_key or os.getenv('GEMINI_API_KEY', '')
+        else:  # openai por defecto
+            self.api_key = api_key or os.getenv('OPENAI_API_KEY', '')
+        
         self.model = model
         self.provider = provider
         self.enabled = bool(self.api_key)
@@ -43,7 +52,7 @@ class LLMReasoner:
                 try:
                     from openai import OpenAI
                     self.client = OpenAI(api_key=self.api_key)
-                    print(f"✓ LLM Reasoner activado ({model})")
+                    print(f"✓ LLM Reasoner activado (OpenAI {model})")
                 except ImportError:
                     print("⚠ openai no instalado. Ejecuta: pip install openai")
                     self.enabled = False
@@ -51,9 +60,36 @@ class LLMReasoner:
                 try:
                     from anthropic import Anthropic
                     self.client = Anthropic(api_key=self.api_key)
-                    print(f"✓ LLM Reasoner activado ({model})")
+                    print(f"✓ LLM Reasoner activado (Anthropic {model})")
                 except ImportError:
                     print("⚠ anthropic no instalado. Ejecuta: pip install anthropic")
+                    self.enabled = False
+            elif provider == "deepseek":
+                try:
+                    from openai import OpenAI
+                    # DeepSeek usa la API compatible con OpenAI
+                    self.client = OpenAI(
+                        api_key=self.api_key,
+                        base_url="https://api.deepseek.com"
+                    )
+                    # Usar modelo deepseek-chat por defecto si no se especifica
+                    if model == "gpt-4" or model == "gpt-3.5-turbo":
+                        self.model = "deepseek-chat"
+                    print(f"✓ LLM Reasoner activado (DeepSeek {self.model})")
+                except ImportError:
+                    print("⚠ openai no instalado. Ejecuta: pip install openai")
+                    self.enabled = False
+            elif provider == "gemini":
+                try:
+                    from google import genai
+                    # Configurar Gemini con nuevo SDK
+                    self.client = genai.Client(api_key=self.api_key)
+                    # Usar gemini-2.0-flash-exp por defecto (más rápido y gratis)
+                    if model in ["gpt-4", "gpt-3.5-turbo", "deepseek-chat", "gemini-pro"]:
+                        self.model = "gemini-2.0-flash-exp"
+                    print(f"✓ LLM Reasoner activado (Google Gemini {self.model})")
+                except ImportError:
+                    print("⚠ google-genai no instalado. Ejecuta: pip install google-genai")
                     self.enabled = False
         else:
             print("⚠ LLM Reasoner desactivado (falta API key)")
@@ -94,7 +130,8 @@ class LLMReasoner:
         
         try:
             # Llamar a LLM
-            if self.provider == "openai":
+            if self.provider in ["openai", "deepseek"]:
+                # OpenAI y DeepSeek usan la misma API
                 response = self.client.chat.completions.create(
                     model=self.model,
                     messages=[
@@ -126,6 +163,22 @@ class LLMReasoner:
                 )
                 
                 analysis = response.content[0].text
+            
+            elif self.provider == "gemini":
+                # Gemini con nuevo SDK
+                full_prompt = f"""Eres un trader experto con 20 años de experiencia. Analiza situaciones de trading de forma lógica y estructurada.
+
+{prompt}"""
+                response = self.client.models.generate_content(
+                    model=self.model,
+                    contents=full_prompt,
+                    config={
+                        'temperature': 0.3,
+                        'max_output_tokens': 1000,
+                    }
+                )
+                
+                analysis = response.text
             
             # Parsear respuesta
             result = self._parse_llm_response(analysis)
@@ -260,7 +313,7 @@ RÉGIMEN: {decision.get('regime', 'N/A')}
 Genera una explicación de 2-3 líneas que un trader principiante pueda entender."""
         
         try:
-            if self.provider == "openai":
+            if self.provider in ["openai", "deepseek"]:
                 response = self.client.chat.completions.create(
                     model=self.model,
                     messages=[{"role": "user", "content": prompt}],
@@ -276,6 +329,17 @@ Genera una explicación de 2-3 líneas que un trader principiante pueda entender
                     messages=[{"role": "user", "content": prompt}]
                 )
                 return response.content[0].text
+            
+            elif self.provider == "gemini":
+                response = self.client.models.generate_content(
+                    model=self.model,
+                    contents=prompt,
+                    config={
+                        'temperature': 0.5,
+                        'max_output_tokens': 200,
+                    }
+                )
+                return response.text
         
         except Exception as e:
             return f"Error generando explicación: {e}"

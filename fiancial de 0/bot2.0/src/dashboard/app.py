@@ -562,18 +562,33 @@ def render_manual_trading_tab(client, settings):
             key="manual_symbol"
         )
     
+    # Detectar cambio de símbolo y limpiar caché automáticamente
+    if "previous_symbol" not in st.session_state:
+        st.session_state.previous_symbol = selected_symbol
+    elif st.session_state.previous_symbol != selected_symbol:
+        # El usuario cambió de símbolo, limpiar caché del símbolo anterior
+        old_cache_key = f"price_{st.session_state.previous_symbol}"
+        new_cache_key = f"price_{selected_symbol}"
+        if old_cache_key in st.session_state:
+            del st.session_state[old_cache_key]
+        if new_cache_key in st.session_state:
+            del st.session_state[new_cache_key]
+        st.session_state.previous_symbol = selected_symbol
+    
     # Mostrar símbolo seleccionado
     st.info(f"**Activo seleccionado:** `{selected_symbol}` | **Categoría:** `{selected_category}`")
     
     # === SECCIÓN 2: OBTENER PRECIO ===
     st.markdown("### 2️⃣ Información de Precio")
     
-    # Botón para refrescar precio
+    # Botón para refrescar precio manualmente
     refresh_col1, refresh_col2, refresh_col3 = st.columns([1, 2, 1])
     with refresh_col2:
         if st.button("🔄 Actualizar Precio", use_container_width=True, key="refresh_price"):
-            if 'last_price' in st.session_state:
-                del st.session_state.last_price
+            # Limpiar caché de precio para el símbolo seleccionado
+            cache_key = f"price_{selected_symbol}"
+            if cache_key in st.session_state:
+                del st.session_state[cache_key]
             st.rerun()
     
     # Obtener precio
