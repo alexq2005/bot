@@ -95,7 +95,7 @@ class IOLClient:
             self._ensure_authenticated()
             
             # Obtener datos de la cotización
-            url = f"{self.base_url}/api/v2/{market}/Titulos/{symbol}"
+            url = f"{self.base_url}/api/v2/{market}/Titulos/{symbol}/Cotizacion"
             
             print(f"Obteniendo quote para {symbol} desde {url}...")
             response = self.session.get(url, timeout=10)
@@ -119,6 +119,7 @@ class IOLClient:
             
             # Debug: mostrar estructura de datos
             # print(f"DEBUG - Estructura de datos para {symbol}: {list(data.keys())}")
+            # print(f"DEBUG - Datos completos: {data}")
             
             # Extraer precio con múltiples fallbacks
             price = 0.0
