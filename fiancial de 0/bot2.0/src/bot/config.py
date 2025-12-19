@@ -229,9 +229,17 @@ class Settings(BaseSettings):
         default="",
         description="API key de OpenAI"
     )
+    deepseek_api_key: str = Field(
+        default="",
+        description="API key de DeepSeek"
+    )
     llm_model: str = Field(
         default="gpt-4",
         description="Modelo LLM a usar"
+    )
+    llm_provider: str = Field(
+        default="openai",
+        description="Proveedor LLM (openai, anthropic, deepseek)"
     )
     paper_mode: bool = Field(
         default=False,
