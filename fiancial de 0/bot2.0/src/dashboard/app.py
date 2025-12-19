@@ -15,6 +15,10 @@ import traceback
 import json
 from pathlib import Path
 import threading
+from dotenv import load_dotenv
+
+# Cargar variables de entorno desde .env
+load_dotenv()
 
 # Agregar directorio raíz al path para imports
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
