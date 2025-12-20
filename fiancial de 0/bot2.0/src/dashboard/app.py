@@ -854,6 +854,7 @@ def render_analysis_tab(settings):
                     # Mostrar señales de trading
                     st.markdown("### 🎯 Señales de Trading")
                     
+                    # Primera fila: RSI, MACD, Bollinger
                     col1, col2, col3 = st.columns(3)
                     
                     with col1:
@@ -882,6 +883,25 @@ def render_analysis_tab(settings):
                             st.error(f"**Bollinger:** {bb_signal}")
                         else:
                             st.info(f"**Bollinger:** {bb_signal}")
+                    
+                    # Segunda fila: Stochastic y ADX (NUEVOS)
+                    col4, col5 = st.columns(2)
+                    
+                    with col4:
+                        stoch_signal = signals.get('stoch_signal', 'N/A')
+                        if 'COMPRA' in stoch_signal:
+                            st.success(f"**Stochastic:** {stoch_signal}")
+                        elif 'VENTA' in stoch_signal:
+                            st.error(f"**Stochastic:** {stoch_signal}")
+                        else:
+                            st.info(f"**Stochastic:** {stoch_signal}")
+                    
+                    with col5:
+                        trend_strength = signals.get('trend_strength', 'N/A')
+                        if 'MUY FUERTE' in trend_strength or 'FUERTE' in trend_strength:
+                            st.success(f"**ADX:** {trend_strength}")
+                        else:
+                            st.warning(f"**ADX:** {trend_strength}")
                     
                     # Mostrar valores actuales de indicadores
                     st.markdown("### 📊 Valores Actuales de Indicadores")
@@ -936,6 +956,60 @@ def render_analysis_tab(settings):
                             "SMA 50",
                             f"${latest_indicators['sma_50']:.2f}",
                             delta=None
+                        )
+                    
+                    # Segunda fila de métricas: Nuevos indicadores
+                    st.markdown("### 📊 Indicadores Avanzados (Nuevos)")
+                    
+                    col5, col6, col7 = st.columns(3)
+                    
+                    with col5:
+                        st.metric(
+                            "Stochastic %K",
+                            f"{latest_indicators['stoch_k']:.2f}",
+                            delta=None,
+                            help="Sobreventa: <20, Sobrecompra: >80"
+                        )
+                        st.metric(
+                            "Stochastic %D",
+                            f"{latest_indicators['stoch_d']:.2f}",
+                            delta=None
+                        )
+                    
+                    with col6:
+                        adx_value = latest_indicators['adx']
+                        st.metric(
+                            "ADX (Fuerza Tendencia)",
+                            f"{adx_value:.2f}",
+                            delta=None,
+                            help="<25: Débil, 25-50: Fuerte, >50: Muy Fuerte"
+                        )
+                        
+                        # Interpretación visual del ADX
+                        if adx_value < 25:
+                            st.caption("🔵 Tendencia Débil")
+                        elif adx_value < 50:
+                            st.caption("🟢 Tendencia Fuerte")
+                        else:
+                            st.caption("🟣 Tendencia Muy Fuerte")
+                    
+                    with col7:
+                        # Calcular Stop Loss/Take Profit sugeridos
+                        entry_price = latest_indicators['price']
+                        stop_loss, take_profit = TechnicalIndicators.calculate_atr_stop_loss(
+                            historical_data, entry_price, side='BUY'
+                        )
+                        
+                        st.metric(
+                            "Stop Loss Sugerido (BUY)",
+                            f"${stop_loss:.2f}",
+                            delta=f"-{((entry_price - stop_loss) / entry_price * 100):.2f}%",
+                            delta_color="inverse"
+                        )
+                        st.metric(
+                            "Take Profit Sugerido (BUY)",
+                            f"${take_profit:.2f}",
+                            delta=f"+{((take_profit - entry_price) / entry_price * 100):.2f}%"
                         )
                     
                     st.success(f"✅ Análisis técnico generado exitosamente para {symbol}")
