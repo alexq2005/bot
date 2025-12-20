@@ -25,6 +25,9 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')
 
 from src.utils.market_manager import MarketManager
 from src.bot.trading_bot import TradingBot
+from src.indicators.technical_indicators import TechnicalIndicators
+from src.indicators.indicator_visualizer import IndicatorVisualizer
+from src.validators.order_validator import OrderValidator, ValidationLevel
 
 # ==============================================================================
 # CONFIGURACIÓN DE PÁGINA
@@ -656,6 +659,86 @@ def render_manual_trading_tab(client, settings):
     
     st.divider()
     
+    # === PANEL DE ANÁLISIS TÉCNICO ===
+    with st.expander("📊 Análisis Técnico Avanzado", expanded=False):
+        st.markdown("### Indicadores Técnicos")
+        
+        try:
+            # Obtener datos históricos
+            if hasattr(client, 'get_historical_data'):
+                with st.spinner("Cargando datos históricos..."):
+                    historical_data = client.get_historical_data(
+                        symbol=selected_symbol,
+                        from_date=datetime.now() - timedelta(days=90),
+                        to_date=datetime.now()
+                    )
+                    
+                    if historical_data is not None and not historical_data.empty and len(historical_data) > 30:
+                        # Calcular indicadores
+                        indicators_calc = TechnicalIndicators()
+                        indicators = indicators_calc.calculate_all_indicators(historical_data['close'])
+                        
+                        # Mostrar señales de trading
+                        st.markdown("#### 🎯 Señales de Trading")
+                        signals = indicators['signals']
+                        
+                        col1, col2, col3 = st.columns(3)
+                        
+                        with col1:
+                            rsi_value = signals.get('rsi_value', 50)
+                            rsi_signal = signals.get('rsi_signal', 'NEUTRAL')
+                            rsi_color = "🟢" if "COMPRA" in rsi_signal else ("🔴" if "VENTA" in rsi_signal else "⚪")
+                            st.metric(
+                                "RSI",
+                                f"{rsi_value:.1f}",
+                                delta=rsi_signal,
+                                delta_color="off"
+                            )
+                            st.caption(f"{rsi_color} {rsi_signal}")
+                        
+                        with col2:
+                            macd_signal = signals.get('macd_signal', 'NEUTRAL')
+                            macd_color = "🟢" if "COMPRA" in macd_signal else ("🔴" if "VENTA" in macd_signal else "⚪")
+                            st.metric("MACD", macd_signal.split('(')[0].strip())
+                            st.caption(f"{macd_color} {macd_signal}")
+                        
+                        with col3:
+                            bb_signal = signals.get('bb_signal', 'NEUTRAL')
+                            bb_color = "🟢" if "COMPRA" in bb_signal else ("🔴" if "VENTA" in bb_signal else "⚪")
+                            st.metric("Bollinger", bb_signal.split('(')[0].strip())
+                            st.caption(f"{bb_color} {bb_signal}")
+                        
+                        st.divider()
+                        
+                        # Crear visualización completa
+                        st.markdown("#### 📈 Gráficos Interactivos")
+                        
+                        # Preparar datos para el visualizador
+                        if 'date' not in historical_data.columns:
+                            historical_data['date'] = historical_data.index
+                        
+                        # Asegurar que tenemos todas las columnas necesarias
+                        required_cols = ['open', 'high', 'low', 'close', 'volume']
+                        if all(col in historical_data.columns for col in required_cols):
+                            visualizer = IndicatorVisualizer()
+                            fig = visualizer.create_comprehensive_chart(historical_data, indicators)
+                            st.plotly_chart(fig, use_container_width=True)
+                        else:
+                            st.warning("Datos históricos incompletos para mostrar gráficos completos")
+                            
+                    else:
+                        st.info("No hay suficientes datos históricos para calcular indicadores técnicos (mínimo 30 días)")
+            else:
+                st.info("El cliente actual no soporta datos históricos. Cambia a modo PAPER o LIVE para ver análisis técnico.")
+                
+        except Exception as e:
+            st.error(f"Error calculando indicadores: {e}")
+            import traceback
+            st.code(traceback.format_exc())
+    
+    st.divider()
+
+    
     # === SECCIÓN 3: CONFIGURAR ORDEN ===
     st.markdown("### 3️⃣ Configurar Orden")
     
@@ -705,6 +788,102 @@ def execute_order(client, symbol, side, quantity, price, settings):
     with result_container.container():
         st.subheader("📊 Procesando orden...")
         
+        # === VALIDACIÓN DE ORDEN ===
+        st.markdown("### 🛡️ Validando orden...")
+        
+        # Configurar validador
+        validator_config = {
+            'max_position_size': 100000,
+            'max_daily_orders': 50,
+            'max_price_deviation': 0.05,  # 5%
+            'max_exposure_per_asset': 0.3  # 30%
+        }
+        
+        validator = OrderValidator(validator_config)
+        
+        # Preparar datos para validación
+        order = {
+            'symbol': symbol,
+            'side': 'BUY' if side == 'Compra' else 'SELL',
+            'quantity': quantity,
+            'price': price
+        }
+        
+        # Obtener balance y posiciones
+        try:
+            balance = client.get_account_balance() if hasattr(client, 'get_account_balance') else 1000000
+            if balance is None:
+                balance = 1000000
+        except:
+            balance = 1000000
+        
+        try:
+            positions = client.get_portfolio() if hasattr(client, 'get_portfolio') else {}
+            if positions is None:
+                positions = {}
+        except:
+            positions = {}
+        
+        # Obtener último precio conocido
+        last_price = price
+        
+        # Contar órdenes diarias (simplificado)
+        daily_order_count = st.session_state.get('daily_order_count', 0)
+        
+        # Ejecutar validación
+        is_valid, validation_results = validator.validate_order(
+            order=order,
+            account_balance=balance,
+            current_positions=positions,
+            last_price=last_price,
+            daily_order_count=daily_order_count
+        )
+        
+        # Mostrar resultados de validación
+        validation_container = st.expander("🔍 Resultados de Validación", expanded=True)
+        
+        with validation_container:
+            for result in validation_results:
+                if result.level == ValidationLevel.ERROR:
+                    icon = "❌" if not result.passed else "✅"
+                    if not result.passed:
+                        st.error(f"{icon} {result.message}")
+                    else:
+                        st.success(f"{icon} {result.message}")
+                elif result.level == ValidationLevel.WARNING:
+                    icon = "⚠️" if not result.passed else "✅"
+                    if not result.passed:
+                        st.warning(f"{icon} {result.message}")
+                    else:
+                        st.info(f"{icon} {result.message}")
+                else:
+                    st.info(f"ℹ️ {result.message}")
+        
+        # Si la validación falla, no ejecutar
+        if not is_valid:
+            st.error("❌ **ORDEN RECHAZADA POR VALIDACIÓN**")
+            st.error("La orden no cumple con los requisitos de seguridad. Revisa los errores arriba.")
+            
+            if st.button("🔙 Volver"):
+                st.rerun()
+            return
+        
+        # Si hay warnings, pedir confirmación adicional
+        has_warnings = any(
+            not r.passed and r.level == ValidationLevel.WARNING 
+            for r in validation_results
+        )
+        
+        if has_warnings:
+            st.warning("⚠️ La orden tiene advertencias. ¿Deseas continuar?")
+            if not st.checkbox("Sí, continuar a pesar de las advertencias"):
+                if st.button("🔙 Cancelar"):
+                    st.rerun()
+                return
+        
+        st.success("✅ Validación exitosa. Procediendo con la orden...")
+        
+        # === EJECUCIÓN DE ORDEN ===
         with st.spinner(f"Enviando orden de {side.lower()}..."):
             try:
                 # Mapear lado
@@ -746,6 +925,9 @@ def execute_order(client, symbol, side, quantity, price, settings):
                         cache_key = f"price_{symbol}"
                         if cache_key in st.session_state:
                             del st.session_state[cache_key]
+                        
+                        # Incrementar contador de órdenes diarias
+                        st.session_state['daily_order_count'] = st.session_state.get('daily_order_count', 0) + 1
                         
                         # Botón para continuar
                         if st.button("🔄 Realizar otra operación"):
