@@ -209,3 +209,63 @@ class TechnicalIndicators:
             'ema_12': latest['ema_12'],
             'ema_26': latest['ema_26']
         }
+    
+    @staticmethod
+    def get_trading_signals(df: pd.DataFrame) -> Dict[str, str]:
+        """
+        Genera señales de trading basadas en indicadores
+        
+        Args:
+            df: DataFrame con columnas OHLCV
+        
+        Returns:
+            Dict con señales: 'rsi_signal', 'macd_signal', 'bb_signal'
+        """
+        signals = {}
+        
+        # Calculate indicators
+        df_with_indicators = TechnicalIndicators.calculate_all_indicators(df)
+        latest = df_with_indicators.iloc[-1]
+        
+        # RSI Signal
+        current_rsi = latest['rsi']
+        if pd.notna(current_rsi):
+            if current_rsi < 30:
+                signals['rsi_signal'] = 'COMPRA (Sobreventa)'
+            elif current_rsi > 70:
+                signals['rsi_signal'] = 'VENTA (Sobrecompra)'
+            else:
+                signals['rsi_signal'] = 'NEUTRAL'
+        else:
+            signals['rsi_signal'] = 'N/A'
+        
+        # MACD Signal
+        macd_current = latest['macd']
+        signal_current = latest['macd_signal']
+        
+        if pd.notna(macd_current) and pd.notna(signal_current):
+            if macd_current > signal_current:
+                signals['macd_signal'] = 'COMPRA (Cruce alcista)'
+            elif macd_current < signal_current:
+                signals['macd_signal'] = 'VENTA (Cruce bajista)'
+            else:
+                signals['macd_signal'] = 'NEUTRAL'
+        else:
+            signals['macd_signal'] = 'N/A'
+        
+        # Bollinger Bands Signal
+        current_price = latest['close']
+        upper = latest['bb_upper']
+        lower = latest['bb_lower']
+        
+        if pd.notna(upper) and pd.notna(lower):
+            if current_price < lower:
+                signals['bb_signal'] = 'COMPRA (Precio bajo banda inferior)'
+            elif current_price > upper:
+                signals['bb_signal'] = 'VENTA (Precio sobre banda superior)'
+            else:
+                signals['bb_signal'] = 'NEUTRAL'
+        else:
+            signals['bb_signal'] = 'N/A'
+        
+        return signals
