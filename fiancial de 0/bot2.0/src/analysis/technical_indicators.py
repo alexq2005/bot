@@ -4,9 +4,9 @@ Cálculo de indicadores técnicos usando la librería 'ta'
 """
 
 import pandas as pd
-from typing import Dict
-from ta.momentum import RSIIndicator
-from ta.trend import MACD, SMAIndicator, EMAIndicator
+from typing import Dict, Tuple
+from ta.momentum import RSIIndicator, StochasticOscillator
+from ta.trend import MACD, SMAIndicator, EMAIndicator, ADXIndicator
 from ta.volatility import BollingerBands, AverageTrueRange
 
 
@@ -142,6 +142,94 @@ class TechnicalIndicators:
         return ema.ema_indicator()
     
     @staticmethod
+    def calculate_stochastic(
+        df: pd.DataFrame,
+        k_period: int = 14,
+        d_period: int = 3
+    ) -> pd.DataFrame:
+        """
+        Calcula el Stochastic Oscillator
+        
+        Args:
+            df: DataFrame con columnas 'high', 'low', 'close'
+            k_period: Período para %K (default: 14)
+            d_period: Período para %D (default: 3)
+        
+        Returns:
+            DataFrame con columnas: stoch_k, stoch_d
+        """
+        stoch = StochasticOscillator(
+            high=df['high'],
+            low=df['low'],
+            close=df['close'],
+            window=k_period,
+            smooth_window=d_period
+        )
+        
+        result = pd.DataFrame()
+        result['stoch_k'] = stoch.stoch()
+        result['stoch_d'] = stoch.stoch_signal()
+        
+        return result
+    
+    @staticmethod
+    def calculate_adx(df: pd.DataFrame, period: int = 14) -> pd.Series:
+        """
+        Calcula el ADX (Average Directional Index)
+        Indica la fuerza de la tendencia (0-100)
+        
+        Args:
+            df: DataFrame con columnas 'high', 'low', 'close'
+            period: Período del ADX (default: 14)
+        
+        Returns:
+            Series con valores de ADX
+            < 25: Tendencia débil
+            25-50: Tendencia fuerte
+            > 50: Tendencia muy fuerte
+        """
+        adx = ADXIndicator(
+            high=df['high'],
+            low=df['low'],
+            close=df['close'],
+            window=period
+        )
+        return adx.adx()
+    
+    @staticmethod
+    def calculate_atr_stop_loss(
+        df: pd.DataFrame,
+        entry_price: float,
+        side: str = 'BUY',
+        atr_multiplier: float = 2.0,
+        period: int = 14
+    ) -> Tuple[float, float]:
+        """
+        Calcula stop loss y take profit basados en ATR
+        
+        Args:
+            df: DataFrame con columnas OHLCV
+            entry_price: Precio de entrada
+            side: 'BUY' o 'SELL'
+            atr_multiplier: Multiplicador de ATR (default: 2.0)
+            period: Período del ATR (default: 14)
+        
+        Returns:
+            Tuple (stop_loss, take_profit)
+        """
+        atr = TechnicalIndicators.calculate_atr(df, period)
+        current_atr = atr.iloc[-1]
+        
+        if side.upper() == 'BUY':
+            stop_loss = entry_price - (current_atr * atr_multiplier)
+            take_profit = entry_price + (current_atr * atr_multiplier * 1.5)  # R/R 1.5:1
+        else:  # SELL
+            stop_loss = entry_price + (current_atr * atr_multiplier)
+            take_profit = entry_price - (current_atr * atr_multiplier * 1.5)
+        
+        return stop_loss, take_profit
+    
+    @staticmethod
     def calculate_all_indicators(df: pd.DataFrame) -> pd.DataFrame:
         """
         Calcula todos los indicadores principales
@@ -178,6 +266,14 @@ class TechnicalIndicators:
         result['ema_12'] = TechnicalIndicators.calculate_ema(df, 12)
         result['ema_26'] = TechnicalIndicators.calculate_ema(df, 26)
         
+        # Stochastic Oscillator (NEW)
+        stoch = TechnicalIndicators.calculate_stochastic(df)
+        result['stoch_k'] = stoch['stoch_k']
+        result['stoch_d'] = stoch['stoch_d']
+        
+        # ADX - Trend Strength (NEW)
+        result['adx'] = TechnicalIndicators.calculate_adx(df)
+        
         return result
     
     @staticmethod
@@ -207,5 +303,99 @@ class TechnicalIndicators:
             'sma_20': latest['sma_20'],
             'sma_50': latest['sma_50'],
             'ema_12': latest['ema_12'],
-            'ema_26': latest['ema_26']
+            'ema_26': latest['ema_26'],
+            'stoch_k': latest['stoch_k'],
+            'stoch_d': latest['stoch_d'],
+            'adx': latest['adx']
         }
+    
+    @staticmethod
+    def get_trading_signals(df: pd.DataFrame) -> Dict[str, str]:
+        """
+        Genera señales de trading basadas en indicadores
+        
+        Args:
+            df: DataFrame con columnas OHLCV
+        
+        Returns:
+            Dict con señales: 'rsi_signal', 'macd_signal', 'bb_signal'
+        """
+        signals = {}
+        
+        # Calculate indicators
+        df_with_indicators = TechnicalIndicators.calculate_all_indicators(df)
+        latest = df_with_indicators.iloc[-1]
+        
+        # RSI Signal
+        current_rsi = latest['rsi']
+        if pd.notna(current_rsi):
+            if current_rsi < 30:
+                signals['rsi_signal'] = 'COMPRA (Sobreventa)'
+            elif current_rsi > 70:
+                signals['rsi_signal'] = 'VENTA (Sobrecompra)'
+            else:
+                signals['rsi_signal'] = 'NEUTRAL'
+        else:
+            signals['rsi_signal'] = 'N/A'
+        
+        # MACD Signal
+        macd_current = latest['macd']
+        signal_current = latest['macd_signal']
+        
+        if pd.notna(macd_current) and pd.notna(signal_current):
+            if macd_current > signal_current:
+                signals['macd_signal'] = 'COMPRA (Cruce alcista)'
+            elif macd_current < signal_current:
+                signals['macd_signal'] = 'VENTA (Cruce bajista)'
+            else:
+                signals['macd_signal'] = 'NEUTRAL'
+        else:
+            signals['macd_signal'] = 'N/A'
+        
+        # Bollinger Bands Signal
+        current_price = latest['close']
+        upper = latest['bb_upper']
+        lower = latest['bb_lower']
+        
+        if pd.notna(upper) and pd.notna(lower):
+            if current_price < lower:
+                signals['bb_signal'] = 'COMPRA (Precio bajo banda inferior)'
+            elif current_price > upper:
+                signals['bb_signal'] = 'VENTA (Precio sobre banda superior)'
+            else:
+                signals['bb_signal'] = 'NEUTRAL'
+        else:
+            signals['bb_signal'] = 'N/A'
+        
+        # Stochastic Signal (NEW)
+        stoch_k = latest['stoch_k']
+        stoch_d = latest['stoch_d']
+        
+        if pd.notna(stoch_k) and pd.notna(stoch_d):
+            if stoch_k < 20 and stoch_k > stoch_d:
+                signals['stoch_signal'] = 'COMPRA (Sobreventa + Cruce alcista)'
+            elif stoch_k > 80 and stoch_k < stoch_d:
+                signals['stoch_signal'] = 'VENTA (Sobrecompra + Cruce bajista)'
+            elif stoch_k < 20:
+                signals['stoch_signal'] = 'COMPRA (Sobreventa)'
+            elif stoch_k > 80:
+                signals['stoch_signal'] = 'VENTA (Sobrecompra)'
+            else:
+                signals['stoch_signal'] = 'NEUTRAL'
+        else:
+            signals['stoch_signal'] = 'N/A'
+        
+        # ADX Trend Strength (NEW)
+        adx = latest['adx']
+        
+        if pd.notna(adx):
+            if adx < 25:
+                signals['trend_strength'] = 'DÉBIL (Sin tendencia clara)'
+            elif adx < 50:
+                signals['trend_strength'] = 'FUERTE (Tendencia establecida)'
+            else:
+                signals['trend_strength'] = 'MUY FUERTE (Tendencia muy marcada)'
+        else:
+            signals['trend_strength'] = 'N/A'
+        
+        return signals

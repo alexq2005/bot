@@ -25,6 +25,8 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')
 
 from src.utils.market_manager import MarketManager
 from src.bot.trading_bot import TradingBot
+from src.analysis.technical_indicators import TechnicalIndicators
+from src.analysis.indicator_visualizer import IndicatorVisualizer
 
 # ==============================================================================
 # CONFIGURACIÓN DE PÁGINA
@@ -765,8 +767,8 @@ def execute_order(client, symbol, side, quantity, price, settings):
 # TAB 4: ANÁLISIS
 # ==============================================================================
 def render_analysis_tab(settings):
-    """Renderiza tab de análisis de mercado"""
-    st.subheader("📈 Análisis de Mercado")
+    """Renderiza tab de análisis de mercado con indicadores técnicos"""
+    st.subheader("📈 Análisis Técnico Profesional")
     
     # Mostrar información del modo
     mode_badge = {
@@ -781,16 +783,246 @@ def render_analysis_tab(settings):
     {mode_badge[1]}
     """)
     
-    # Placeholder para análisis futuro
-    st.info("""
-    🚧 **En construcción**
+    # Selector de símbolo para análisis
+    st.markdown("### 🎯 Seleccionar Activo")
     
-    Próximamente:
-    - 📊 Gráficos en tiempo real
-    - 📈 Indicadores técnicos
-    - 📰 Análisis de noticias
-    - 🤖 Recomendaciones de trading
-    """)
+    col1, col2 = st.columns([2, 1])
+    
+    with col1:
+        # Lista de símbolos populares argentinos
+        popular_symbols = [
+            "GGAL", "YPFD", "PAMP", "ALUA", "BMA", "GGAL", 
+            "COME", "TXAR", "CRES", "EDN", "SUPV", "LOMA"
+        ]
+        
+        symbol = st.selectbox(
+            "Símbolo a analizar:",
+            options=popular_symbols,
+            index=0,
+            help="Selecciona el activo que deseas analizar"
+        )
+    
+    with col2:
+        days = st.number_input(
+            "Días de historia:",
+            min_value=30,
+            max_value=365,
+            value=90,
+            step=30,
+            help="Cantidad de días de datos históricos"
+        )
+    
+    # Botón para generar análisis
+    if st.button("🔍 Generar Análisis Técnico", type="primary"):
+        with st.spinner(f"Generando análisis técnico para {symbol}..."):
+            try:
+                # Generar datos de ejemplo (en producción, obtener de API)
+                import numpy as np
+                
+                # Crear datos simulados realistas
+                np.random.seed(hash(symbol) % 2**32)
+                base_price = np.random.uniform(50, 1000)
+                dates = pd.date_range(end=datetime.now(), periods=days, freq='D')
+                
+                returns = np.random.randn(days) * 0.02
+                prices = base_price * np.exp(np.cumsum(returns))
+                
+                historical_data = pd.DataFrame({
+                    'date': dates,
+                    'open': prices * (1 + np.random.randn(days) * 0.005),
+                    'high': prices + np.abs(np.random.randn(days) * prices * 0.01),
+                    'low': prices - np.abs(np.random.randn(days) * prices * 0.01),
+                    'close': prices,
+                    'volume': np.random.randint(100000, 10000000, days)
+                })
+                
+                if historical_data is not None and not historical_data.empty:
+                    # Calcular indicadores
+                    indicators_calc = TechnicalIndicators()
+                    indicators_df = indicators_calc.calculate_all_indicators(historical_data)
+                    
+                    # Obtener señales de trading
+                    signals = indicators_calc.get_trading_signals(historical_data)
+                    
+                    # Crear visualización
+                    visualizer = IndicatorVisualizer()
+                    fig = visualizer.create_comprehensive_chart(historical_data, indicators_df)
+                    
+                    # Mostrar gráfico
+                    st.plotly_chart(fig, use_container_width=True)
+                    
+                    # Mostrar señales de trading
+                    st.markdown("### 🎯 Señales de Trading")
+                    
+                    # Primera fila: RSI, MACD, Bollinger
+                    col1, col2, col3 = st.columns(3)
+                    
+                    with col1:
+                        rsi_signal = signals.get('rsi_signal', 'N/A')
+                        if 'COMPRA' in rsi_signal:
+                            st.success(f"**RSI:** {rsi_signal}")
+                        elif 'VENTA' in rsi_signal:
+                            st.error(f"**RSI:** {rsi_signal}")
+                        else:
+                            st.info(f"**RSI:** {rsi_signal}")
+                    
+                    with col2:
+                        macd_signal = signals.get('macd_signal', 'N/A')
+                        if 'COMPRA' in macd_signal:
+                            st.success(f"**MACD:** {macd_signal}")
+                        elif 'VENTA' in macd_signal:
+                            st.error(f"**MACD:** {macd_signal}")
+                        else:
+                            st.info(f"**MACD:** {macd_signal}")
+                    
+                    with col3:
+                        bb_signal = signals.get('bb_signal', 'N/A')
+                        if 'COMPRA' in bb_signal:
+                            st.success(f"**Bollinger:** {bb_signal}")
+                        elif 'VENTA' in bb_signal:
+                            st.error(f"**Bollinger:** {bb_signal}")
+                        else:
+                            st.info(f"**Bollinger:** {bb_signal}")
+                    
+                    # Segunda fila: Stochastic y ADX (NUEVOS)
+                    col4, col5 = st.columns(2)
+                    
+                    with col4:
+                        stoch_signal = signals.get('stoch_signal', 'N/A')
+                        if 'COMPRA' in stoch_signal:
+                            st.success(f"**Stochastic:** {stoch_signal}")
+                        elif 'VENTA' in stoch_signal:
+                            st.error(f"**Stochastic:** {stoch_signal}")
+                        else:
+                            st.info(f"**Stochastic:** {stoch_signal}")
+                    
+                    with col5:
+                        trend_strength = signals.get('trend_strength', 'N/A')
+                        if 'MUY FUERTE' in trend_strength or 'FUERTE' in trend_strength:
+                            st.success(f"**ADX:** {trend_strength}")
+                        else:
+                            st.warning(f"**ADX:** {trend_strength}")
+                    
+                    # Mostrar valores actuales de indicadores
+                    st.markdown("### 📊 Valores Actuales de Indicadores")
+                    
+                    latest_indicators = indicators_calc.get_latest_indicators(historical_data)
+                    
+                    col1, col2, col3, col4 = st.columns(4)
+                    
+                    with col1:
+                        st.metric(
+                            "Precio Actual",
+                            f"${latest_indicators['price']:.2f}",
+                            delta=None
+                        )
+                        st.metric(
+                            "RSI (14)",
+                            f"{latest_indicators['rsi']:.2f}",
+                            delta=None
+                        )
+                    
+                    with col2:
+                        st.metric(
+                            "MACD",
+                            f"{latest_indicators['macd']:.4f}",
+                            delta=None
+                        )
+                        st.metric(
+                            "Signal",
+                            f"{latest_indicators['macd_signal']:.4f}",
+                            delta=None
+                        )
+                    
+                    with col3:
+                        st.metric(
+                            "BB Superior",
+                            f"${latest_indicators['bb_upper']:.2f}",
+                            delta=None
+                        )
+                        st.metric(
+                            "BB Inferior",
+                            f"${latest_indicators['bb_lower']:.2f}",
+                            delta=None
+                        )
+                    
+                    with col4:
+                        st.metric(
+                            "SMA 20",
+                            f"${latest_indicators['sma_20']:.2f}",
+                            delta=None
+                        )
+                        st.metric(
+                            "SMA 50",
+                            f"${latest_indicators['sma_50']:.2f}",
+                            delta=None
+                        )
+                    
+                    # Segunda fila de métricas: Nuevos indicadores
+                    st.markdown("### 📊 Indicadores Avanzados (Nuevos)")
+                    
+                    col5, col6, col7 = st.columns(3)
+                    
+                    with col5:
+                        st.metric(
+                            "Stochastic %K",
+                            f"{latest_indicators['stoch_k']:.2f}",
+                            delta=None,
+                            help="Sobreventa: <20, Sobrecompra: >80"
+                        )
+                        st.metric(
+                            "Stochastic %D",
+                            f"{latest_indicators['stoch_d']:.2f}",
+                            delta=None
+                        )
+                    
+                    with col6:
+                        adx_value = latest_indicators['adx']
+                        st.metric(
+                            "ADX (Fuerza Tendencia)",
+                            f"{adx_value:.2f}",
+                            delta=None,
+                            help="<25: Débil, 25-50: Fuerte, >50: Muy Fuerte"
+                        )
+                        
+                        # Interpretación visual del ADX
+                        if adx_value < 25:
+                            st.caption("🔵 Tendencia Débil")
+                        elif adx_value < 50:
+                            st.caption("🟢 Tendencia Fuerte")
+                        else:
+                            st.caption("🟣 Tendencia Muy Fuerte")
+                    
+                    with col7:
+                        # Calcular Stop Loss/Take Profit sugeridos
+                        entry_price = latest_indicators['price']
+                        stop_loss, take_profit = TechnicalIndicators.calculate_atr_stop_loss(
+                            historical_data, entry_price, side='BUY'
+                        )
+                        
+                        st.metric(
+                            "Stop Loss Sugerido (BUY)",
+                            f"${stop_loss:.2f}",
+                            delta=f"-{((entry_price - stop_loss) / entry_price * 100):.2f}%",
+                            delta_color="inverse"
+                        )
+                        st.metric(
+                            "Take Profit Sugerido (BUY)",
+                            f"${take_profit:.2f}",
+                            delta=f"+{((take_profit - entry_price) / entry_price * 100):.2f}%"
+                        )
+                    
+                    st.success(f"✅ Análisis técnico generado exitosamente para {symbol}")
+                    
+                else:
+                    st.warning("No hay datos históricos disponibles para este símbolo.")
+                    
+            except Exception as e:
+                st.error(f"Error al generar análisis: {str(e)}")
+                st.exception(e)
+    else:
+        st.info("👆 Selecciona un símbolo y haz clic en 'Generar Análisis Técnico' para ver los indicadores.")
+
 
 # ==============================================================================
 # TAB 5: BOT AUTOMÁTICO
